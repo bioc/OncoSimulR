@@ -1,0 +1,15 @@
+\usepackage[%
+		shash={8c8c022},
+		lhash={8c8c02214b27f6421fc91523948e112019728983},
+		authname={ramon diaz-uriarte (at Bufo)},
+		authemail={rdiaz02@gmail.com},
+		authsdate={2014-07-14},
+		authidate={2014-07-14 19:05:47 +0200},
+		authudate={1405357547},
+		commname={ramon diaz-uriarte (at Bufo)},
+		commemail={rdiaz02@gmail.com},
+		commsdate={2014-07-14},
+		commidate={2014-07-14 19:05:47 +0200},
+		commudate={1405357547},
+		refnames={ (HEAD, master)}
+	]{gitsetinfo}
