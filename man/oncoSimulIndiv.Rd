@@ -20,16 +20,24 @@
 \usage{
  oncoSimulIndiv(poset, model = "Bozic", numPassengers = 30, mu = 1e-6,
                 detectionSize = 1e8, detectionDrivers = 4,
-                sampleEvery = 1, initSize = 500, s = 0.1, sh = -1,
+                sampleEvery = ifelse(model \%in\% c("Bozic", "Exp"), 1,
+                             0.025),
+                initSize = 500, s = 0.1, sh = -1,
                 K = initSize/(exp(1) - 1), keepEvery = sampleEvery,
+                endTimeEvery = ifelse(model \%in\% c("Bozic", "Exp"), -9,
+                                               5 * sampleEvery),
                 finalTime = 0.25 * 25 * 365, onlyCancer = TRUE,
                 max.memory = 2000, max.wall.time = 200,
                 verbosity = 0)
 
  oncoSimulPop(Nindiv, poset, model = "Bozic", numPassengers = 30, mu = 1e-6,
                 detectionSize = 1e8, detectionDrivers = 4,
-                sampleEvery = 1, initSize = 500, s = 0.1, sh = -1,
+                sampleEvery = ifelse(model \%in\% c("Bozic", "Exp"), 1,
+                             0.025),
+                initSize = 500, s = 0.1, sh = -1,
                 K = initSize/(exp(1) - 1), keepEvery = sampleEvery,
+                endTimeEvery = ifelse(model \%in\% c("Bozic", "Exp"), -9,
+                                               5 * sampleEvery),
                 finalTime = 0.25 * 25 * 365, onlyCancer = TRUE,
                 max.memory = 2000, max.wall.time = 200,
                 verbosity = 0, mc.cores = detectCores())
@@ -121,6 +129,23 @@
   return objects are not huge.
 
 }
+
+\item{endTimeEvery}{
+  If endTimeEvery is > 0, even if conditions for finishing a simulation
+  (number of drivers or population size) are met at time \emph{t}, the
+  simulation will run at least until \emph{t + endTimeEvery} and
+  conditions will be checked again. Only if conditions for finishing a
+  simulation are still met, will the simulation end.
+
+  The reason for this parameter is to ensure that, say, a clone with a
+  certain number of drivers that would cause the simulation to end has
+  not just appeared but then gone extinct shortly after. Beware, though,
+  that in simulations with very fast growth, setting large endTimeEvery
+  can result in the simulations taking a long time to finish or hitting
+  the wall time limit.}
+
+
+
 \item{finalTime}{
   What is the maximum number of time units that the simulation can run.
 
@@ -256,7 +281,13 @@
   Academy of Sciences of the United States of America\/}, \bold{107},
   18545--18550.
   
-  Diaz-Uriarte, R. (2014). Inferring restrictions in the temporal order
+  Diaz-Uriarte, R. (2015). Identifying restrictions in the order of
+             accumulation of mutations during tumor progression: effects
+             of passengers, evolutionary models, and sampling, \emph{BMC
+             Bioinformatics\/},
+             \bold{16}(41). \url{http://www.biomedcentral.com/1471-2105/16/41/abstract}.
+
+  Inferring restrictions in the temporal order
   of mutations during tumor progression: effects of passenger mutations,
   evolutionary models, and
   sampling. \url{http://dx.doi.org/10.1101/005587}
@@ -295,7 +326,7 @@ summary(b1)
 
 plot(b1, addtot = TRUE)
 
-## McFarland; need to modify sampleEvery, but use a reasonable
+## McFarland; use a small sampleEvery, but also a reasonable
 ##   keepEvery.
 ## We also modify mutation rate to values similar to those in the
 ##   original paper.

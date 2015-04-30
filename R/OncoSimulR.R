@@ -45,12 +45,15 @@ oncoSimulPop <- function(Nindiv,
                          mu = 1e-6,
                          detectionSize = 1e8,
                          detectionDrivers = 4,
-                         sampleEvery = 1,
+                         sampleEvery = ifelse(model %in% c("Bozic", "Exp"), 1,
+                             0.025),
                          initSize = 500,
                          s = 0.1,
                          sh = -1,
                          K = initSize/(exp(1) - 1),
                          keepEvery = sampleEvery,
+                         endTimeEvery = ifelse(model %in% c("Bozic", "Exp"), -9,
+                                               5 * sampleEvery),
                          finalTime = 0.25 * 25 * 365,
                          onlyCancer = TRUE,
                          max.memory = 2000,
@@ -78,6 +81,7 @@ oncoSimulPop <- function(Nindiv,
                         sh = sh,
                         K = K,
                         keepEvery = keepEvery,
+                        endTimeEvery = endTimeEvery,
                         finalTime = finalTime,
                         onlyCancer = onlyCancer,
                         max.memory = max.memory,
@@ -99,12 +103,15 @@ oncoSimulIndiv <- function(poset,
                            mu = 1e-6,
                            detectionSize = 1e8,
                            detectionDrivers = 4,
-                           sampleEvery = 1,
+                           sampleEvery = ifelse(model %in% c("Bozic", "Exp"), 1,
+                               0.025),
                            initSize = 500,
                            s = 0.1,
                            sh = -1,
                            K = initSize/(exp(1) - 1),
                            keepEvery = sampleEvery,
+                           endTimeEvery = ifelse(model %in% c("Bozic", "Exp"), -9,
+                               5 * sampleEvery),
                            finalTime = 0.25 * 25 * 365,
                            onlyCancer = TRUE,
                            max.memory = 2000,
@@ -112,7 +119,11 @@ oncoSimulIndiv <- function(poset,
                            verbosity = 0
                            ) {
     call <- match.call()
-    rt <- poset.to.restrictTable(poset)
+    ## a backdoor to allow passing restrictionTables directly
+    if(inherits(poset, "restrictionTable"))
+        rt <- poset
+    else
+        rt <- poset.to.restrictTable(poset)
 
 
     numDrivers <- nrow(rt)
@@ -148,11 +159,11 @@ oncoSimulIndiv <- function(poset,
         warning("With the McFarland model you often want smaller sampleEvery")
     }
     
-    if(typeFitness == "mcfarlandlog") {
-        endTimeEvery <- keepEvery
-    } else {
-        endTimeEvery <- -9
-    }
+    ## if(typeFitness == "mcfarlandlog") {
+    ##     endTimeEvery <- keepEvery
+    ## } else {
+    ##     endTimeEvery <- -9
+    ## }
 
 
 
@@ -472,7 +483,7 @@ oncoSimul.internal <- function(restrict.table,
                                keepEvery = 20,
                                alpha = 0.0015,
                                K = 1000,
-                               endTimeEvery = NULL,
+                               endTimeEvery = 5 * sampleEvery,
                                finalDrivers = 1000) {
 
     if(initSize_species < 10) {
@@ -514,18 +525,18 @@ oncoSimul.internal <- function(restrict.table,
         warning("Using fitness exp with death != 1")
 
 
-    if( (is.null(endTimeEvery) || (endTimeEvery > 0)) &&
-       (typeFitness %in% c("bozic1", "exp") )) {
-        warning(paste("endTimeEvery will take a positive value. ",
-                      "This will make simulations not stop until the next ",
-                      "endTimeEvery has been reached. Thus, in simulations ",
-                      "with very fast growth, simulations can take a long ",
-                      "time to finish, or can hit the wall time limit. "))
-    }
-    if(is.null(endTimeEvery))
-        endTimeEvery <- keepEvery
-    if( (endTimeEvery > 0) && (endTimeEvery %% keepEvery) )
-        warning("!(endTimeEvery %% keepEvery)")
+    ## if( (is.null(endTimeEvery) || (endTimeEvery > 0)) &&
+    ##    (typeFitness %in% c("bozic1", "exp") )) {
+    ##     warning(paste("endTimeEvery will take a positive value. ",
+    ##                   "This will make simulations not stop until the next ",
+    ##                   "endTimeEvery has been reached. Thus, in simulations ",
+    ##                   "with very fast growth, simulations can take a long ",
+    ##                   "time to finish, or can hit the wall time limit. "))
+    ## }
+    ## if(is.null(endTimeEvery))
+    ##     endTimeEvery <- keepEvery
+    ## if( (endTimeEvery > 0) && (endTimeEvery %% keepEvery) )
+    ##     warning("!(endTimeEvery %% keepEvery)")
     ## a sanity check in restricTable, so no neg. indices for the positive deps
     neg.deps <- function(x) {
         ## checks a row of restrict.table
@@ -743,9 +754,27 @@ convertRestrictTable <- function(x) {
 
 
 
-adjmat.to.restrictTable <- function(x) {
+adjmat.to.restrictTable <- function(x, root = FALSE,
+                                    rootNames = c("0", "root", "Root")) {
     ## we have the zero
-    ## x <- x[-1, -1]
+    if( any(colnames(x) %in% c("0", "root", "Root")) & !root)
+        warning("Looks like the matrix has a root but you specified root = FALSE")
+
+    if(!identical(colnames(x), rownames(x)))
+        stop("colnames and rownames not identical")
+    if(root) {
+        posRoot <- which(colnames(x) %in% rootNames)
+        if(!length(posRoot))
+            stop("No column with the root name")
+        if(length(posRoot) > 1)
+            stop("Ambiguous location of root")
+        x <- x[-posRoot, -posRoot]
+    }
+
+    if(typeof(x) != "integer")
+        warning("This is not an _integer_ adjacency matrix")
+    if( !all(x %in% c(0, 1) ))
+        stop("Values not in [0, 1]")
     if(!is.null(colnames(x))) {
         ## FIXME: this makes sense with numeric labels for columns, but
         ## not ow.
@@ -758,15 +787,16 @@ adjmat.to.restrictTable <- function(x) {
     
     num.deps <- colSums(x)
     max.n.deps <- max(num.deps)
-    rt <- matrix(-9, nrow = nrow(x),
+    rt <- matrix(-9L, nrow = nrow(x),
                  ncol = max.n.deps + 2)
     for(i in 1:ncol(x)) {
         if( num.deps[ i ])
             rt[i , 1:(2 + num.deps[ i ])] <- c(i, num.deps[i ],
                                                which(x[, i ] != 0))
         else
-            rt[i , 1:2] <- c(i , 0)
+            rt[i , 1:2] <- c(i , 0L)
     }
+    class(rt) <- "restrictionTable"
     return(rt)
 }
 
@@ -800,7 +830,7 @@ posetToGraph <- function(x, names,
     ## But we do not for now. Note we show lonely nodes, which oncotrees
     ## do not.  wait: when using root, we do not have "lonely nodes"
     ## anymore.  But that is irrelevant for metrics based on transitive
-    ## closure. Note for Diff, etc.
+    ## closure. Not for Diff, etc.
 
     ## In fact, this is all OK, but is confussing, because I can
     ## have two kinds of posets: ones that are full, with NAs, etc, if
@@ -808,9 +838,10 @@ posetToGraph <- function(x, names,
     ## using the later, the user needs to make sure that the last node is
     ## in the poset. This can be used as a shortcut trick, but in the docs
     ## I do not do it, as it is bad practice.
-    
+
+
     m <- length(names) 
-    m1 <- matrix(0, nrow = m, ncol = m)
+    m1 <- matrix(0L, nrow = m, ncol = m)
     colnames(m1) <- names
     rownames(m1) <- names
     if(is.null(dim(x)) ) {
@@ -829,16 +860,21 @@ posetToGraph <- function(x, names,
         }
         if(nrow(x) > 0) {
             if(addroot)
-                m1[x + 1] <- 1
+                m1[x + 1] <- 1L
             else
-                m1[x] <- 1
+                m1[x] <- 1L ## this will remove all entries with a 0
+                            ## index. So posets where explicit the dep. on
+                            ## 0.
         }
         if((length(names) > 1) & addroot) {
             no.ancestor <- which(apply(m1, 2, function(x) all(x == 0)))
             no.ancestor <- no.ancestor[-1]
-            m1[cbind(1, no.ancestor)] <- 1
+            m1[cbind(1, no.ancestor)] <- 1L
         } ## o.w. do nothing
     }
+    if(addroot)
+        m1[1, 1] <- 0L
+    
     if(type == "adjmat") return(m1)
     else if (type == "graphNEL") return(as(m1, "graphNEL"))
     ## does not show the labels
