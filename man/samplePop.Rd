@@ -7,8 +7,8 @@
 }
 \description{
   
-  Obtain a sample (a matrix of individuals by genes or, equivalently, a
-  vector of genotypes) from an oncosimulpop object (i.e., a simulation
+  Obtain a sample (a matrix of individuals/samples by genes or, equivalently, a
+  vector of "genotypes") from an oncosimulpop object (i.e., a simulation
   of multiple individuals) or a single oncosimul object. Sampling
   schemes include whole tumor and single cell sampling, and sampling at
   the end of the tumor progression or during the progression of the
@@ -17,7 +17,7 @@
 
 \usage{
 samplePop(x, timeSample = "last", typeSample = "whole",
-          thresholdWhole = 0.5)
+          thresholdWhole = 0.5, geneNames = NULL)
 }
 
 \arguments{
@@ -49,25 +49,45 @@ samplePop(x, timeSample = "last", typeSample = "whole",
     on thresholdWhole: a gene is considered mutated if it is altered in at
     least thresholdWhole proportion of the cells in that individual.
   }
+
+  \item{geneNames}{
+    
+    An optional vector of gene names so as to label the column names of
+    the output.
+  }  
+  
 }
 
 \details{
   samplePop simply repeats the sampling process in each individual of
   the oncosimulpop object.
+
+  Please see \code{\link{oncoSimulSample}} for a much more efficient way
+  of sampling when you are sure what you want to sample.
 }
 
 \value{
-  A matrix. Each row is a genotype, where 0 denotes no alteration and 1
-  alteration. To make it more clear that genes/laterations are in
-  columns, columns are named starting by "G."  (for "gene").
+
+  A matrix. Each row is a "sample genotype", where 0 denotes no alteration
+  and 1 alteration. When using v.2, columns are named with the gene
+  names.
+
+  We quote "sample genotype" because when not using single cell, a row
+  (a sample genotype) need not be, of course, any really existing
+  genotype in a population as we are genotyping a whole tumor. Suppose
+  there are really two genotypes present in the population, genotype A,
+  which has gene A mutated and genotype B, which has gene B
+  mutated. Genotype A has a frequency of 60\% (so B's frequency is
+  40\%). If you use whole tumor sampling with \code{thresholdWhole =
+  0.4} you will obtain a genotype with A and B mutated.
+  %% To make it more clear that genes/laterations are in
+  %% columns, columns are named starting by "G."  (for "gene").
 }
 
 \references{
-  Diaz-Uriarte, R. (2015). Identifying restrictions in the order of
-             accumulation of mutations during tumor progression: effects
-             of passengers, evolutionary models, and sampling, \emph{BMC
-             Bioinformatics\/},
-             \bold{16}(41). \url{http://www.biomedcentral.com/1471-2105/16/41/abstract}.
+  Diaz-Uriarte, R. (2014). Inferring restrictions in the temporal order
+  of mutations during tumor progression: effects of passenger mutations,
+  evolutionary models, and sampling. \url{http://dx.doi.org/10.1101/005587}
 }
 
 \author{
@@ -75,7 +95,8 @@ samplePop(x, timeSample = "last", typeSample = "whole",
 }
 
 \seealso{
-  \code{\link{oncoSimulPop}}
+  \code{\link{oncoSimulPop}}, \code{\link{oncoSimulSample}}
+  
 }
 
 \examples{

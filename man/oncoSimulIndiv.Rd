@@ -5,11 +5,12 @@
 \alias{print.oncosimulpop}
 \alias{summary.oncosimul}
 \alias{summary.oncosimulpop}
-
+\alias{oncoSimulSample}
 
 
 \title{
-  Simulate tumor progression for one or more individuals.
+  Simulate tumor progression for one or more individuals, optionally
+  returning just a sample in time.
 }
 \description{
   Simulate tumor progression including possible restrictions in the
@@ -18,29 +19,75 @@
   al., 2012.
 }
 \usage{
- oncoSimulIndiv(poset, model = "Bozic", numPassengers = 30, mu = 1e-6,
+ oncoSimulIndiv(fp, model = "Exp", numPassengers = 30, mu = 1e-6,
                 detectionSize = 1e8, detectionDrivers = 4,
                 sampleEvery = ifelse(model \%in\% c("Bozic", "Exp"), 1,
                              0.025),
                 initSize = 500, s = 0.1, sh = -1,
                 K = initSize/(exp(1) - 1), keepEvery = sampleEvery,
-                endTimeEvery = ifelse(model \%in\% c("Bozic", "Exp"), -9,
-                                               5 * sampleEvery),
+                minDetectDrvCloneSz = "auto",
+                extraTime = 0,
                 finalTime = 0.25 * 25 * 365, onlyCancer = TRUE,
                 max.memory = 2000, max.wall.time = 200,
-                verbosity = 0)
+                max.num.tries = 500,
+                errorHitWallTime = TRUE,
+                errorHitMaxTries = TRUE,
+                verbosity = 0,
+                initMutant = NULL,
+                seed = NULL)
 
- oncoSimulPop(Nindiv, poset, model = "Bozic", numPassengers = 30, mu = 1e-6,
+oncoSimulPop(Nindiv, fp, model = "Exp", numPassengers = 30, mu = 1e-6,
                 detectionSize = 1e8, detectionDrivers = 4,
                 sampleEvery = ifelse(model \%in\% c("Bozic", "Exp"), 1,
                              0.025),
                 initSize = 500, s = 0.1, sh = -1,
                 K = initSize/(exp(1) - 1), keepEvery = sampleEvery,
-                endTimeEvery = ifelse(model \%in\% c("Bozic", "Exp"), -9,
-                                               5 * sampleEvery),
+                minDetectDrvCloneSz = "auto",
+                extraTime = 0,
                 finalTime = 0.25 * 25 * 365, onlyCancer = TRUE,
                 max.memory = 2000, max.wall.time = 200,
+                max.num.tries = 500,
+                errorHitWallTime = TRUE,
+                errorHitMaxTries = TRUE,
                 verbosity = 0, mc.cores = detectCores())
+
+
+oncoSimulSample(Nindiv,
+                fp,
+                model = "Exp",
+                numPassengers = 0,
+                mu = 1e-6,
+                detectionSize = round(runif(Nindiv, 1e5, 1e8)),
+
+                detectionDrivers = {
+                                if(inherits(fp, "fitnessEffects")) {
+                                    if(length(fp$drv)) {
+                                        nd <- (2: round(0.75 * length(fp$drv)))
+                                    } else {
+                                        nd <- 0
+                                    }
+                                } else {
+                                    nd <- (2 : round(0.75 * max(fp)))
+                                }
+                                sample(nd, Nindiv,
+                                       replace = TRUE)
+                            },
+                sampleEvery = ifelse(model \%in\% c("Bozic", "Exp"), 1,
+                    0.025),
+                initSize = 500,
+                s = 0.1,
+                sh = -1,
+                K = initSize/(exp(1) - 1),
+                minDetectDrvCloneSz = "auto",
+                extraTime = 0,
+                finalTime = 0.25 * 25 * 365,
+                onlyCancer = TRUE,
+                max.memory = 2000,
+                max.wall.time.total = 600,
+                max.num.tries.total = 500 * Nindiv,
+                verbosity  = 1,
+                typeSample = "whole",
+                thresholdWhole = 0.5)
 
 
 }
@@ -49,9 +96,15 @@
   
   \item{Nindiv}{Number of individuals or number of different
     trajectories to simulate.}
-  \item{poset}{
+  \item{fp}{
     
-    The poset that specifies the order restrictions. See \code{\link{poset}}.
+    Either a poset that specifies the order restrictions (see
+    \code{\link{poset}} if you want to use the specification as in
+    v.1. Otherwise, a fitnessEffects object (see
+    \code{\link{allFitnessEffects}}).
+
+    Other arguments below (s, sh) make sense only if you use a poset, as
+    they are included in the fitnessEffects object.
 
 }
 \item{model}{
@@ -74,13 +127,15 @@
 \item{mu}{
   Mutation rate.
 
-}
-\item{detectionSize}{
-  What is the minimal number of cells for cancer to be detected.
+} \item{detectionSize}{ What is the minimal number of cells for cancer
+to be detected.  For \code{oncoSimulSample} this can be a vector.
 
 }
 \item{detectionDrivers}{
-  The minimal number of drivers present in any clone for cancer to be detected.
+  The minimal number of drivers present in any clone for cancer to be
+  detected. For \code{oncoSimulSample} this can be a vector. The default
+  in this case is a vector of drivers from a uniform between 2 and 0.75
+  the total number of drivers
 
 }
 \item{sampleEvery}{
@@ -100,9 +155,11 @@
   Initial population size.
 
 }
-\item{s}{
-  Selection coefficient for drivers.
 
+\item{s}{
+  Selection coefficient for drivers. 
+    Only relevant if using a poset as this is included in the
+  fitnessEffects object.
 }
 \item{sh}{
   Selection coefficient for drivers with restrictions not satisfied. A
@@ -110,6 +167,9 @@
   clone when its restrictions are not satisfied.
 
   To specify "sh=Inf" (in Diaz-Uriarte, 2014) use sh = -1.
+
+  Only relevant if using a poset as this is included in the
+  fitnessEffects object.
 
 }
 \item{K}{
@@ -130,21 +190,50 @@
 
 }
 
-\item{endTimeEvery}{
-  If endTimeEvery is > 0, even if conditions for finishing a simulation
-  (number of drivers or population size) are met at time \emph{t}, the
-  simulation will run at least until \emph{t + endTimeEvery} and
-  conditions will be checked again. Only if conditions for finishing a
-  simulation are still met, will the simulation end.
+%% \item{endTimeEvery}{
+%%   If endTimeEvery is > 0, even if conditions for finishing a simulation
+%%   (number of drivers or population size) are met at time \emph{t}, the
+%%   simulation will run at least until \emph{t + endTimeEvery} and
+%%   conditions will be checked again. Only if conditions for finishing a
+%%   simulation are still met, will the simulation end.
+
+%%   The reason for this parameter is to ensure that, say, a clone with a
+%%   certain number of drivers that would cause the simulation to end has
+%%   not just appeared but then gone extinct shortly after. Beware, though,
+%%   that in simulations with very fast growth, setting large endTimeEvery
+%%   can result in the simulations taking a long time to finish or hitting
+%%   the wall time limit.}
+
+\item{minDetectDrvCloneSz}{
+
+  A value of 0 or larger than 0 (by default equal to
+  \code{initSize} in the McFarland model). If larger than 0, when
+  checking if we are done with a simulation, we verify that the sum of
+  the population sizes of all clones that have a number of mutated
+  drivers larger or equal to \code{detectionDrivers} is larger or equal
+  to this \code{minDetectDrvCloneSz}.
 
   The reason for this parameter is to ensure that, say, a clone with a
   certain number of drivers that would cause the simulation to end has
-  not just appeared but then gone extinct shortly after. Beware, though,
-  that in simulations with very fast growth, setting large endTimeEvery
-  can result in the simulations taking a long time to finish or hitting
-  the wall time limit.}
+  not just appeared and is present in only one individual that might
+  then immediately go extinct. This can be relevant in secenarios such
+  as the McFarland model.
 
+  See also \code{extraTime}.
+}
 
+\item{extraTime}{
+  A value larger than zero waits those many additional time periods
+  before exiting after having reached the exit condition (population
+  size, number of drivers).
+
+  The reason for this setting is to prevent the McFL models from always
+  exiting at a time when one clone is increasing its size quickly (see
+  \code{minDetectDrvCloneSz}). By setting an \code{extraTime} larger than 0,
+  we can sample at points when we are at the plateau.
+  
+
+}
 
 \item{finalTime}{
   What is the maximum number of time units that the simulation can run.
@@ -153,14 +242,80 @@
 \item{onlyCancer}{
   Return only simulations that reach cancer?
 
-  If set to TRUE, only simulations that satisfy the detectionDrivers or
-  the detectionSize will be returned (i.e., the simulation will be
-  repeated until one which meets that cancer requirements is
-  met). Otherwise, the simulation is returned regardless of final
+  If set to TRUE, only simulations that satisfy the
+  \code{detectionDrivers} or the \code{detectionSize} requirements will
+  be returned: the simulation will be repeated, within the limits set by
+  \code{max.num.tries} and \code{max.wall.time} (and, for
+  \code{oncoSimulSample} also \code{max.num.tries.total} and
+  \code{max.wall.time.total}), until one which meets the
+  \code{detectionDrivers} or \code{detectionSize} is
+  obtained. Otherwise, the simulation is returned regardless of final
   population size or number of drivers in any clone and this includes
   simulations where the population goes extinct.
 
 }
+
+\item{seed}{The seed to use for the C++ random number generator. If not
+  passed explicitly (the default) then chosen from R.}
+
+\item{initMutant}{For v.2, a vector of the mutations of the initial
+  clone for the simulations. For v.1, the single mutation of the initial
+  clone for the simulations. The default (if you pass nothing) is to
+  start the simulation from the wildtype genotype with nothing mutated.}
+
+
+\item{max.num.tries}{Only applies when \code{onlyCancer = TRUE}. What is
+  the maximum number of times, for an individual simulation, we can
+  repeat the simulation for it to reach cancer? There are certain
+  parameter settings where reaching cancer is extremely unlikely and you
+  might not want to run forever in those cases.  }
+
+
+\item{max.num.tries.total}{Only applies when \code{onlyCancer = TRUE}
+  and for \code{oncoSimulSample}. What is the maximum number of times,
+  over all simulations for all individuals in a population sample, that
+  we can repeat the simulations so that cancer is reached for all
+  individuals?  The idea is to set a limit on the average minimal
+  probability of reaching cancer for a set of simulations to be
+  accepted.}
+
+\item{max.wall.time}{
+  Maximum wall time for each individual simulation run. If the
+  simulation is not done in this time, it is aborted.
+
+}
+
+\item{max.wall.time.total}{
+
+  Maximum wall time for all the simulations (when using
+  \code{oncoSimulSample}), in seconds. If the simulation is not
+  completed in this time, it is aborted. To prevent problems from a
+  single individual simulation going wild, this limit is also enforced
+  per simulation (so the run can be aborted directly from C++).
+
+}
+
+\item{errorHitMaxTries}{ If TRUE (the default) a simulation that reaches
+  the maximum number of repetitions allowed is considered not to have
+  succesfully finished and, thus, an error, and no output from it will
+  be reported. This is often what you want.%%  But if you want to see
+  %% what is happening for some set of parameters that seem to never
+  %% finish, set this to FALSE, and check what the output looks like.
+  See  \code{Details}.
+}
+
+\item{errorHitWallTime}{
+  If TRUE (the default) a simulation that reaches the maximum wall time
+  is considered not to have succesfully finished and, thus, an error,
+  and no output from it will be reported. This is often what you
+  want. %% But if you want to see what is happening for some set of
+  %% parameters that seem to never finish, set this to FALSE, and check
+  %% what the output looks like.
+  See \code{Details}.
+}
+
+
+
 \item{max.memory}{
   The largest size (in MB) of the matrix of Populations by Time. If it
   creating it would use more than this amount of memory, it is not
@@ -168,11 +323,12 @@
   will return an enormous object.
 
 }
-\item{max.wall.time}{
-  Maximum wall time for each individual simulation run. If the
-  simulation is not done in this time, it is aborted.
 
-}
+
+
+
+
+
 \item{verbosity}{
   If 0, run as silently as possible. Otherwise, increasing values of
   verbosity provide progressively more information about intermediate
@@ -180,8 +336,25 @@
 
 }
 
+  \item{typeSample}{
+    "singleCell" (or "single") for single cell sampling, where the
+    probability of sampling a cell (a clone) is directly proportional to
+    its population size.  "wholeTumor" (or "whole") for whole tumor
+    sampling (i.e., this is similar to a biopsy being the entire
+    tumor). See \code{\link{samplePop}}.
+  }
+
+  \item{thresholdWhole}{
+    In whole tumor sampling, whether a gene is detected as mutated depends
+    on thresholdWhole: a gene is considered mutated if it is altered in at
+    least thresholdWhole proportion of the cells in that individual. See \code{\link{samplePop}}.
+  }
+  
+
 \item{mc.cores}{Number of cores to use when simulating more than one
   individual (i.e., when calling oncoSimulPop).}
+
+
 
 }
 \details{
@@ -206,6 +379,34 @@
   (for class oncosimulpop) data frame.  The \code{print} methods for
   these classes simply print the summary.
 
+
+  Changing options \code{errorHitMaxTries} and \code{errorHitWallTime}
+  can be useful when conducting many simulations, as in the call to
+  \code{oncoSimulPop}: setting them to TRUE means nothing is recorded
+  for those simulations where ending conditions are not reached but
+  setting them to FALSE would allow you to record the output; this would
+  potentially result in a mixture where some simulations would not have
+  reached the ending condition, but this might sometimes be what you
+  want. Note, however, that \code{oncoSimulSample} always has both them
+  to TRUE, as it could not be otherwise.
+
+
+
+    \code{GenotyesWDistinctOrderEff} provides the information about
+    order effects that is missing from \code{Genotyoes}. When there are
+    order effects, the \code{Genotypes} matrix can contain genotypes
+    that are not distinguishable. Suppose there are two genes, the first
+    and the second. In the \code{Genotype} output you can get two
+    columns where there is a 1 in both genes: those two columns
+    correspond to the two possible orders (first gene mutated first, or
+    first gene mutated after the
+    second). \code{GenotypesWDistinctOrderEff} disambiguates this. The
+    same is done by \code{GenotypeLabels}; this is easier to decode for
+    a human (a string of gene labels) but a little bit harder to parse
+    automatically. 
+
+  
+
 }
 \value{
   
@@ -223,6 +424,7 @@
   \item{Genotypes}{A matrix of genotypes. For each of the clones in the
     pops.by.time matrix, its genotype, with a 0 if the gene is not
     mutated and a 1 if it is mutated.}
+
   
   \item{MaxNumDrivers}{The largest number of mutated driver genes ever
     seen in the simulation in any clone.}
@@ -271,7 +473,37 @@
   For \code{oncoSimulPop} a list of length \code{Nindiv}, and of class
   \code{"oncosimulpop"}, where each element of the list is itself a
   list, of class \code{oncosimul}, with components as described above.
+
+
+  In v.2, the output is of both class "oncosimul" and "oncosimul2". The
+  oncoSimulIndiv return object differs in
+
+  \item{GenotypesWDistinctOrderEff}{
+    A list
+  of vectors, where each vector corresponds to a genotype in the
+  \code{Genotypes}, showing (where it matters) the order of mutations.
+    Each vector shows the genotypes, with the numeric
+  codes, showing explicitly the order when it matters. So if you have
+  genes 1, 2, 7 for which order relationships are given, and genes 3, 4,
+  5, 6 for which other interactions exist, any mutations in 1, 2, 7 are
+  shown first, and in the order they occurred, before showing the rest
+  of the mutations.  See details.}
   
+ 
+
+
+  \item{GenotypesLabels}{The genotypes, as character vectors with the
+  original labels provided (i.e., not the integer codes). As before,
+  mutated genes, for those where order matters, come first, and are
+  separated by the rest by a "_". See details.}
+
+  \item{OccurringDrivers}{This is the same as in v.1, but we use the
+  labels, not the numeric id codes. Of course, if you entered integers
+  as labels for the genes, you will see numbers (however, as a character
+  string).}
+
+
+
 
 }
 \references{
@@ -282,15 +514,12 @@
   18545--18550.
   
   Diaz-Uriarte, R. (2015). Identifying restrictions in the order of
-             accumulation of mutations during tumor progression: effects
-             of passengers, evolutionary models, and sampling, \emph{BMC
-             Bioinformatics\/},
-             \bold{16}(41). \url{http://www.biomedcentral.com/1471-2105/16/41/abstract}.
+  accumulation of mutations during tumor progression: effects of
+  passengers, evolutionary models, and sampling
+  \url{http://www.biomedcentral.com/1471-2105/16/41/abstract}
 
-  Inferring restrictions in the temporal order
-  of mutations during tumor progression: effects of passenger mutations,
-  evolutionary models, and
-  sampling. \url{http://dx.doi.org/10.1101/005587}
+  Gerstung et al., 2011. The Temporal Order of Genetic and Pathway
+  Alterations in Tumorigenesis. \emph{PLoS ONE}, 6.
   
   McFarland, C.~D. et al. (2013). Impact of deleterious passenger
   mutations on cancer progression.  \emph{Proceedings of the National
@@ -305,16 +534,31 @@
 
 }
 
+
+\note{Please, note that the meaning of the fitness effects in the
+  McFarland model is not the same as in the original paper; the fitness
+  coefficients are transformed to allow for a simpler fitness function
+  as a product of terms. This differs with respect to v.1. See the
+  vignette for details.}
+
 \author{Ramon Diaz-Uriarte}
 
 
 \seealso{
   \code{\link{plot.oncosimul}}, \code{\link{examplePosets}},
-  \code{\link{samplePop}}
+  \code{\link{samplePop}}, \code{\link{allFitnessEffects}}
   
 
 }
 \examples{
+
+#################################
+#####
+##### Examples using v.1
+#####
+#################################
+
+
 ## use poset p701
 data(examplePosets)
 p701 <- examplePosets[["p701"]]
@@ -356,8 +600,119 @@ plot(m1, addtot = TRUE, log = "")
 p1 <- oncoSimulPop(4, p701,
                    keepEvery = 10,
                    mc.cores = 2)
+summary(p1)
+samplePop(p1)
+
+p2 <- oncoSimulSample(4, p701)
 
 
+#########################################
+######
+###### Examples using v.2:
+######
+#########################################
+
+
+
+#### A model similar to the one in McFarland. We use 5070 genes.
+
+set.seed(456)
+nd <- 70  
+np <- 5000 
+s <- 0.1  
+sp <- 1e-3 
+spp <- -sp/(1 + sp)
+mcf1 <- allFitnessEffects(noIntGenes = c(rep(s, nd), rep(spp, np)),
+                          drv = seq.int(nd))
+mcf1s <-  oncoSimulIndiv(mcf1,
+                         model = "McFL", 
+                         mu = 1e-7,
+                         detectionSize = 1e8, 
+                         detectionDrivers = 100,
+                         sampleEvery = 0.02,
+                         keepEvery = 2,
+                         initSize = 2000,
+                         finalTime = 1000,
+                         onlyCancer = FALSE)
+plot(mcf1s, addtot = TRUE, lwdClone = 0.6, log = "")
+summary(mcf1s)
+plot(mcf1s)
+
+
+#### Order effects with modules, and 5 genes without interactions
+#### with fitness effects from an exponential distribution
+
+oi <- allFitnessEffects(orderEffects =
+               c("F > D" = -0.3, "D > F" = 0.4),
+               noIntGenes = rexp(5, 10),
+                          geneToModule =
+                              c("Root" = "Root",
+                                "F" = "f1, f2, f3",
+                                "D" = "d1, d2") )
+oiI1 <- oncoSimulIndiv(oi, model = "Exp")
+oiI1$GenotypesLabels
+oiI1   ## note the order and separation by "_"
+
+
+oiP1 <- oncoSimulPop(4, oi,
+                     keepEvery = 10,
+                     mc.cores = 2)
+summary(oiP1) 
+
+
+## Even if order exists, this cannot reflect it;
+## G1 to G10 are d1, d2, f1..,f3, and the 5 genes without
+## interaction
+samplePop(oiP1)
+
+
+oiS1 <- oncoSimulSample(4, oi)
+
+## The output contains only the summary of the runs AND
+## the sample:
+oiS1 
+
+## And their sizes do differ
+object.size(oiS1)
+object.size(oiP1)
+
+
+
+######## Using a poset for pancreatic cancer from Gerstung et al.
+###      (s and sh are made up for the example; only the structure
+###       and names come from Gerstung et al.)
+
+
+pancr <- allFitnessEffects(data.frame(parent = c("Root", rep("KRAS", 4), "SMAD4", "CDNK2A", 
+                                          "TP53", "TP53", "MLL3"),
+                                      child = c("KRAS","SMAD4", "CDNK2A", 
+                                          "TP53", "MLL3",
+                                          rep("PXDN", 3), rep("TGFBR2", 2)),
+                                      s = 0.05,
+                                      sh = -0.3,
+                                      typeDep = "MN"))
+plot(pancr)
+
+### Use an exponential growth model
+
+pancr1 <- oncoSimulIndiv(pancr, model = "Exp")
+pancr1
+summary(pancr1)
+plot(pancr1)
+pancr1$GenotypesLabels
+
+
+## Pop and Sample
+pancrPop <- oncoSimulPop(4, pancr,
+                        keepEvery = 10,
+                       mc.cores = 2)
+summary(pancrPop)
+pancrSPop <- samplePop(pancrPop)
+pancrSPop
+
+pancrSamp <- oncoSimulSample(4, pancr)
+pancrSamp
+                      
 }
 \keyword{misc}
 \keyword{iteration}

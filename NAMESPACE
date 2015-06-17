@@ -1,7 +1,10 @@
 useDynLib(OncoSimulR, .registration=TRUE)
 ## useDynLib(OncoSimulR)
 
-export("oncoSimulPop", "oncoSimulIndiv", "samplePop", "plotPoset")
+export("oncoSimulPop", "oncoSimulIndiv", "samplePop",
+       "plotPoset", "oncoSimulSample", "allFitnessEffects",
+       "evalGenotype", "evalAllGenotypes", "simOGraph"
+       )
 
 S3method(plot, oncosimul)
 S3method(print, oncosimul)
@@ -9,13 +12,15 @@ S3method(summary, oncosimul)
 S3method(plot, oncosimulpop)
 S3method(summary, oncosimulpop)
 S3method(print, oncosimulpop)
+S3method(plot, fitnessEffects)
 
 
 importFrom("data.table", rbindlist, .rbind.data.table) 
 importFrom(Rcpp, evalCpp)
+## import(igraph)
+importFrom("igraph", igraph.to.graphNEL, graph.data.frame, V, E,
+           "V<-", "E<-", plot.igraph)
 import(graph)
 import(Rgraphviz)
-importFrom("parallel", mclapply, detectCores)
-
-
-
+importFrom("parallel", mclapply, detectCores, mcMap)
+importFrom("gtools", combinations, permutations)
