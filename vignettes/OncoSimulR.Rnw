@@ -175,7 +175,7 @@ summary of some of the key features:
       on McFarland et al.\ \cite{McFarland2013}.
       
     \item Code in C++ is available (though not yet callable from R) for
-      using several other models, including the one from \cite{Beerenwinkel2007}.
+      using several other models, including the one from \cite{Beerenwinkel2007b}.
       
     \item Simulations are generally very fast as I use C++ to implement
       the BNB algorithm.
@@ -254,16 +254,6 @@ library(igraph)
 With OncoSimulR you can specify different types of effects on fitness:
 
 \begin{itemize}
-\item General epistatic effects (e.g., section \ref{epi}), including
-  synthetic viability (e.g., section \ref{sv}) and synthetic
-  lethality/mortality (e.g., section \ref{sl}).
-  
-  
-\item Effects where the order in which mutations are acquired matter, as
-  illustrated in section \ref{oe}. There is, in fact, empirical evidence
-  of these effects \cite{Ortmann2015}. For instance, the fitness of
-  genotype ``A, B'' would differ depending on whether A or B was acquired
-  first.
 
 \item A special type of epistatic effects that is particularly amenable to
   be represented as a graph. In this graph, having, say, ``B'' be a child
@@ -271,21 +261,37 @@ With OncoSimulR you can specify different types of effects on fitness:
   is what OT \cite{Desper1999JCB, Szabo2008}, CBN \cite{Beerenwinkel2007,
     Gerstung2009, Gerstung2011}, progression networks
   \cite{FarahaniLagergren2013}, and other similar models
-  \cite{Korsunsky2014} mean.  Note that this is not an order effect: the
-  fitness of a genotype is a function of whether or not the restrictions
-  in the graph are satisfied, not the historical sequence by how they were
-  satisfied.
+  \cite{Korsunsky2014} mean. Details are provided in section
+  \ref{posetslong}. Note that this is not an order effect (discussed
+  below): the fitness of a genotype from this DAGs is a function of
+  whether or not the restrictions in the graph are satisfied, not the
+  historical sequence by how they were satisfied.
 
-\item Genes that have independent effects on fitness.
+\item Effects where the order in which mutations are acquired matter, as
+  illustrated in section \ref{oe}. There is, in fact, empirical evidence
+  of these effects \cite{Ortmann2015}. For instance, the fitness of
+  genotype ``A, B'' would differ depending on whether A or B was acquired
+  first.
+
+  
+\item General epistatic effects (e.g., section \ref{epi}), including
+  synthetic viability (e.g., section \ref{sv}) and synthetic
+  lethality/mortality (e.g., section \ref{sl}).
+
+
+\item Genes that have independent effects on fitness (section \ref{noint}).
   
 \end{itemize}
 
 
-Modules (see section \ref{modules0}) allow you to specify the above
+Modules (see section \ref{modules0}) allow you to specify any of the above
 effects (except those for genes without interactions, as it would not make
-sense there) in terms of modules (sets of genes), not individual genes.
+sense there) in terms of modules (sets of genes), not individual genes. We
+will introduce them right after \ref{posetslong}, and continue using them
+thereafter.
 
-\subsubsection{How to specify those effects}\label{howfit}
+
+\subsubsection{How to specify fitness effects effects}\label{howfit}
 
 A guiding design principle of OncoSimulR is to try to make the
 specification of those effects as simple as possible but also as flexible
@@ -473,11 +479,20 @@ of other mutations. For example, the values of \texttt{sh} could be all
 small positive ones (or for mildly deleterious effects, small negative
 numbers), while the values of \texttt{s} are much larger positive numbers.
 
+\subsubsection{Extended posets}
+In version 1 of this package we used posets in the sense of
+\cite{Beerenwinkel2007, Gerstung2009} as explained in section \ref{poset}
+and in the help for \Rfunction{poset}. Here, we continue using two
+columns, that specify parents and children, but we add columns for the
+specific values of fitness effects (both s and sh ---i.e., fitness effects
+for what happens when restrictions are and are not satisfied) and for the
+type of dependency as explained in section \ref{andorxor}.
+
 
 
 We can now illustrate the specification of different fitness effects.
 
-\subsubsection{A first conjunction example}\label{cbn1}
+\subsubsection{A first conjunction (AND) example}\label{cbn1}
 
 <<>>=
 
@@ -564,9 +579,10 @@ and typeDep columns, so no need to specify \texttt{stringsAsFactor = TRUE}).
 
 We fix the error in our specification. Notice that the ``sh'' is not set
 to $-1$ in these examples. If you want strict compliance with the poset
-restrictions, you should set $sh = -1$, but having an $sh > -1$ will lead
-to fitnesses that are $> 0$ and, thus, is a way of modeling small
-deviations from the poset (see discussion in \cite{Diaz-Uriarte2015}).
+restrictions, you should set $sh = -1$ or, better yet, $sh = -\infty$ (see
+section \ref{noviab}), but having an $sh > -1$ will lead to fitnesses that
+are $> 0$ and, thus, is a way of modeling small deviations from the poset
+(see discussion in \cite{Diaz-Uriarte2015}).
 
 In these examples, the reason to set ``sh'' to values larger than $-1$ and
 different among the genes is to allow us to easily see the actual,
@@ -588,20 +604,21 @@ cbn2 <- allFitnessEffects(c1)
 
 @ 
 
-We can get a graphical representation using the default ``graphNEL''
-<<fig.height=3>>=
-plot(cbn2)
-@ 
+%% We can get a graphical representation using the default ``graphNEL''
+%% <<fig.height=3>>=
+%% plot(cbn2)
+%% @ 
 
-or one using ``igraph'':
-<<fig.height=5>>=
-plot(cbn2, "igraph", layout = layout.reingold.tilford)
-@ 
+%% or one using ``igraph'':
+%% <<fig.height=5>>=
+%% plot(cbn2, "igraph", layout = layout.reingold.tilford)
+%% @ 
 
-(since this is a tree, the reingold.tilford layout is probably the best here).
+%% (since this is a tree, the reingold.tilford layout is probably the best here).
 
-This figures, of course, are the same as in the example in section
-\ref{cbn1}, since the structure has not changed, only the numeric values.
+We could get graphical representations but the figures, of course, would
+be the same as in the example in section \ref{cbn1}, since the structure
+has not changed, only the numeric values.
 
 What is the fitness of all possible genotypes? Here, order of events
 \textit{per se} does not matter, beyond that considered in the poset. In
@@ -779,7 +796,7 @@ plot(fp3)
 
 We can also use ``igraph'':
 
-<<fig.height=5>>=
+<<fig.height=6>>=
 plot(fp3, "igraph", layout.reingold.tilford)
 @ 
 
@@ -974,7 +991,7 @@ plot(fp4m, expandModules = TRUE)
 
 or
 
-<<fig.height=6>>=
+<<fig.height=7>>=
 plot(fp4m, "igraph", layout = layout.reingold.tilford, 
      expandModules = TRUE)
 
@@ -1284,6 +1301,7 @@ type, but each single mutant is lethal.
   M&M& (1 + s)\\
   \hline
 \end{tabular}
+
 where ``wt'' denotes wild type and ``M'' denotes mutant.
 
 
@@ -1737,7 +1755,7 @@ fea <- allFitnessEffects(rT = p4, epistasis = epist, orderEffects = oe,
 
 How does it look?
 
-<<fig.height=5.5>>=
+<<fig.height=6.5>>=
 plot(fea)
 @ 
 
@@ -1749,12 +1767,12 @@ plot(fea, "igraph")
 
 
 We can, if we want, expand the modules using a ``graphNEL'' graph
-<<fig.height=5>>=
+<<fig.height=6.5>>=
 plot(fea, expandModules = TRUE)
 @ 
 
 or an ``igraph'' one
-<<fig.height=7>>=
+<<fig.height=7.>>=
 plot(fea, "igraph", expandModules = TRUE)
 @ 
 
@@ -2249,7 +2267,7 @@ pancreatic cancer poset in Gerstung et al.\ \cite{Gerstung2011} (their
 figure 2B, left). We use directly the names of the genes, since that is
 immediately supported by the new version.
 
-<<>>=
+<<fig.width=4>>=
 
 pancr <- allFitnessEffects(
     data.frame(parent = c("Root", rep("KRAS", 4), 
@@ -2262,6 +2280,7 @@ pancr <- allFitnessEffects(
                sh = -0.9,
                typeDep = "MN"))
 
+plot(pancr)
 @ 
 
 Of course the ``s'' and ``sh'' are set arbitrarily here.
@@ -2349,6 +2368,31 @@ summary(colSums(mcfLs$Genotypes[-(1:70), ]))
 %% g3 <- g2[which(rs == 0), ]
 %% g4 <- rbind(g1, g3)
 %% @ 
+
+
+
+
+%% <<>>=
+
+%% nin <- 50000
+%% ne <- 10
+%% s <- 0.1
+%% sj <- -0.05
+%% nn <- sapply(c("A", "B"), function(x) paste0(seq.int(ne), x))
+%% int <- apply(nn, 1, function(x) paste(x, collapse = " : "))
+%% single <- as.vector(nn)
+%% epi <- c(rep(s, length(single)), rep(sj, length(int)))
+%% names(epi) <- c(single, int)
+%% ee <- allFitnessEffects(epistasis = epi,
+%%                         noIntGenes = rexp(nin, 20))
+
+
+%% see <- oncoSimulIndiv(ee, model = "Exp", detectionDrivers = 1000,
+%%                       sampleEvery = 10,
+%%                       keepEvery = -9)
+
+%% @ 
+
 
 
 
@@ -2884,7 +2928,7 @@ proposed and named before; please let me know, best if with a reference.
 
 
 Should we remove direct connections if there are indirect? Or, should we
-set \texttt{removeDirectIndirect = TRUE}? Except for zz \cite{FarahaniLagergren2013},
+set \texttt{removeDirectIndirect = TRUE}? Except for \cite{FarahaniLagergren2013},
 none of the DAGs I've seen in the context of CBNs, oncogenetic trees, etc,
 include both direct and indirect connections between nodes. If these
 exist, reasoning about the model can be harder. For example, with CBN (AND
