@@ -1,3 +1,4 @@
+
 //     Copyright 2013, 2014, 2015 Ramon Diaz-Uriarte
 
 //     This program is free software: you can redistribute it and/or modify
@@ -16,6 +17,7 @@
 
 
 // #include "OncoSimul.h"
+// #include "randutils.h" //Nope, until we have gcc-4.8 in Win; full C++11
 #include "debug_common.h"
 #include "bnb_common.h"
 #include "new_restrict.h"
@@ -50,7 +52,7 @@ void nr_fitness(spParamsP& tmpP,
 		       const spParamsP& parentP,
 		       const Genotype& ge,
 		       const fitnessEffectsAll& F,
-		       const std::string& typeFitness,
+		       const TypeModel typeModel,
 		       const double& genTime,
 		       const double& adjust_fitness_B,
 		       const double& adjust_fitness_MF) {
@@ -69,14 +71,14 @@ void nr_fitness(spParamsP& tmpP,
 
   // The ones often used are bozic1, exp, mcfarlandlog
 
-  if(typeFitness == "bozic1") {
+  if(typeModel == TypeModel::bozic1) {
     tmpP.death = prodDeathFitness(evalGenotypeFitness(ge, F));
     if( tmpP.death > 99) {
       tmpP.birth = 0.0; 
     } else {
       tmpP.birth = 1.0;
     }
-  } else if (typeFitness == "bozic2") {
+  } else if (typeModel == TypeModel::bozic2) {
     double pp = prodDeathFitness(evalGenotypeFitness(ge, F));
     tmpP.birth = std::max(0.0, (1.0/genTime) * (1.0 - 0.5 * pp ));
     tmpP.death = (0.5/genTime) * pp;
@@ -92,10 +94,10 @@ void nr_fitness(spParamsP& tmpP,
       tmpP.absfitness = parentP.absfitness;
       tmpP.birth = fitness;
       // exp, mcfarland, and mcfarlandlog as above. Next are the two exceptions.
-      if(typeFitness == "beerenwinkel") {
+      if(typeModel == TypeModel::beerenwinkel) {
 	tmpP.absfitness = fitness; 
 	tmpP.birth = adjust_fitness_B * tmpP.absfitness;
-      } else if(typeFitness == "mcfarland0") {
+      } else if(typeModel == TypeModel::mcfarland0) {
 	tmpP.absfitness = fitness;
 	tmpP.birth = adjust_fitness_MF * tmpP.absfitness;
       }
@@ -476,8 +478,8 @@ std::string genotypeToIntString(const std::vector<int>& genotypeV,
 
 
 std::string genotypeToNameString(const std::vector<int>& genotypeV,
-				       const fitness_as_genes& fg,
-				       const std::map<int, std::string>& intName) {
+				 const fitness_as_genes& fg,
+				 const std::map<int, std::string>& intName) {
   
   // The genotype vectors are returned as a string of names. Similar to
   // the Int version, but we map here to names.
@@ -524,9 +526,10 @@ std::string genotypeToNameString(const std::vector<int>& genotypeV,
 
 
 std::vector<std::string> genotypesToNameString(const std::vector< vector<int> >& uniqueGenotypesV,
-					       const fitnessEffectsAll& F,
+					       const fitness_as_genes fg,
+					       // const fitnessEffectsAll& F,
 					       const std::map<int, std::string>& intName) {
-  fitness_as_genes fg = fitnessAsGenes(F);
+  //fitness_as_genes fg = fitnessAsGenes(F); // I use this before;
   std::vector<std::string> gs;
   for(auto const &v: uniqueGenotypesV )
       gs.push_back(genotypeToNameString(v, fg, intName));
@@ -614,6 +617,7 @@ static void nr_sample_all_pop_P(std::vector<int>& sp_to_remove,
       // has had a non-zero size at sampling time is preserved (if it
       // needs to be preserved, because it is keepEvery time).
       sp_to_remove.push_back(i);
+
 #ifdef DEBUGV
       Rcpp::Rcout << "\n\n     Removing species i = " << i 
 		  << " with genotype = " << genotypeSingleVector(Genotypes[i]);
@@ -627,7 +631,18 @@ static void nr_sample_all_pop_P(std::vector<int>& sp_to_remove,
 }
 
 
-
+void addToPhylog(PhylogName& phylog,
+		 const Genotype& parent,
+		 const Genotype& child,
+		 double time,
+		 const std::map<int, std::string>& intName,
+		 const fitness_as_genes& fg) {
+  phylog.time.push_back(time);
+  phylog.parent.push_back(genotypeToNameString(genotypeSingleVector(parent),
+					       fg, intName));
+  phylog.child.push_back(genotypeToNameString(genotypeSingleVector(child),
+					      fg, intName));
+}
 
 
 
@@ -636,7 +651,7 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
 		     const double& K,
 		     const double& alpha,
 		     const double& genTime,
-		     const std::string& typeFitness,
+		     const TypeModel typeModel,
 		     const int& mutatorGenotype,
 		     const double& mu,
 		     const double& death,
@@ -669,9 +684,14 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
 		     std::vector<int>& sampleMaxNDr,
 		     std::vector<int>& sampleNDrLargestPop,
 		     bool& reachDetection,
-		     std::mt19937& ran_gen,
+			std::mt19937& ran_gen,
+			// randutils::mt19937_rng& ran_gen,
 		     double& runningWallTime,
-		     bool& hittedWallTime) {
+			bool& hittedWallTime,
+			const std::map<int, std::string>& intName,
+			const fitness_as_genes& genesInFitness,
+			PhylogName& phylog,
+			bool keepPhylog) {
 		     //bool& anyForceRerunIssues
   //  if(numRuns > 0) {
 
@@ -681,6 +701,9 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
   // double dummyMutationRate = 1e-10;
   // ALWAYS initialize this here, or reinit or rezero
   genot_out.clear();
+
+  phylog = PhylogName();
+  
   popSizes_out.clear();
   index_out.clear();
   time_out.clear();
@@ -723,6 +746,8 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
   int iterL = 1000;
   int speciesL = 1000; 
   //int timeL = 1000;
+
+  int iterInterrupt = 50000; //how large should we make this?
   
   double tmpdouble1 = 0.0;
   double tmpdouble2 = 0.0;
@@ -835,7 +860,7 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
 				     ran_gen); // FIXME: nr, here. What is a "wt
 					// genotype"? Does it have "0"
 					// mutated, or nothing. Nothing.
-    if(typeFitness == "beerenwinkel") {
+    if(typeModel == TypeModel::beerenwinkel) {
       
       popParams[0].death = 1.0; //note same is in McFarland.
       // But makes sense here; adjustment in beerenwinkel is via fitness
@@ -849,7 +874,7 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
       updateRatesBeeren(popParams, adjust_fitness_B, initSize,
 			currentTime, alpha, initSize, 
 			mutatorGenotype, mu);
-    } else if(typeFitness == "mcfarland0") {
+    } else if(typeModel == TypeModel::mcfarland0) {
       // death equal to birth of a non-mutant.
       popParams[0].death = log1p(totPopSize/K); // log(2.0), except rare cases
       if(!mutatorGenotype)
@@ -859,39 +884,39 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
       updateRatesMcFarland0(popParams, adjust_fitness_MF, K, 
 			    totPopSize,
 			    mutatorGenotype, mu);
-    } else if(typeFitness == "mcfarland") {
+    } else if(typeModel == TypeModel::mcfarland) {
       popParams[0].death = totPopSize/K;
       popParams[0].birth = prodFitness(evalGenotypeFitness(Genotypes[0],
 								fitnessEffects));
-    } else if(typeFitness == "mcfarlandlog") {
+    } else if(typeModel == TypeModel::mcfarlandlog) {
       popParams[0].death = log1p(totPopSize/K);
       popParams[0].birth = prodFitness(evalGenotypeFitness(Genotypes[0],
 								fitnessEffects));
-    } else if(typeFitness == "bozic1") {
+    } else if(typeModel == TypeModel::bozic1) {
       tmpParam.birth =  1.0;
       tmpParam.death = -99.9;
-    } else if (typeFitness == "bozic2") {
+    } else if (typeModel == TypeModel::bozic2) {
       tmpParam.birth =  -99;
       tmpParam.death = -99;
-    } else if (typeFitness == "exp") {
+    } else if (typeModel == TypeModel::exp) {
       tmpParam.birth =  -99;
       tmpParam.death = death;
     } else {
-      throw std::invalid_argument("this ain't a valid typeFitness");
+      throw std::invalid_argument("this ain't a valid typeModel");
     } 
-    if( (typeFitness != "beerenwinkel") && (typeFitness != "mcfarland0") 
-	&& (typeFitness != "mcfarland") && (typeFitness != "mcfarlandlog")) // wouldn't matter
+    if( (typeModel != TypeModel::beerenwinkel) && (typeModel != TypeModel::mcfarland0) 
+	&& (typeModel != TypeModel::mcfarland) && (typeModel != TypeModel::mcfarlandlog)) // wouldn't matter
       nr_fitness(popParams[0], tmpParam,
 		 Genotypes[0],
 		 fitnessEffects,
-		 typeFitness, genTime,
+		 typeModel, genTime,
 		 adjust_fitness_B, adjust_fitness_MF);
     // we pass as the parent the tmpParam; it better initialize
     // everything right, or that will blow. Reset to init
     init_tmpP(tmpParam);
   } else {
     popParams[0].numMutablePos = numGenes;
-    if(typeFitness == "beerenwinkel") {
+    if(typeModel == TypeModel::beerenwinkel) {
       popParams[0].death = 1.0;
       // initialize to prevent birth/mutation warning with Beerenwinkel
       // when no mutator. O.w., the defaults
@@ -901,7 +926,7 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
       updateRatesBeeren(popParams, adjust_fitness_B, initSize,
 			currentTime, alpha, initSize, 
 			mutatorGenotype, mu);
-    } else if(typeFitness == "mcfarland0") {
+    } else if(typeModel == TypeModel::mcfarland0) {
       popParams[0].death = log1p(totPopSize/K);
       if(!mutatorGenotype)
 	popParams[0].mutation = mu * popParams[0].numMutablePos;
@@ -909,25 +934,25 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
       updateRatesMcFarland0(popParams, adjust_fitness_MF, K, 
 			    totPopSize,
 			    mutatorGenotype, mu);
-    } else if(typeFitness == "mcfarland") {
+    } else if(typeModel == TypeModel::mcfarland) {
       popParams[0].birth = 1.0;
       popParams[0].death = totPopSize/K;
       // no need to call updateRates
-    } else if(typeFitness == "mcfarlandlog") {
+    } else if(typeModel == TypeModel::mcfarlandlog) {
       popParams[0].birth = 1.0;
       popParams[0].death = log1p(totPopSize/K);
       // no need to call updateRates
-    } else if(typeFitness == "bozic1") {
+    } else if(typeModel == TypeModel::bozic1) {
       popParams[0].birth = 1.0;
       popParams[0].death = 1.0;
-    } else if (typeFitness == "bozic2") {
+    } else if (typeModel == TypeModel::bozic2) {
       popParams[0].birth = 0.5/genTime;
       popParams[0].death = 0.5/genTime;
-    } else if (typeFitness == "exp") {
+    } else if (typeModel == TypeModel::exp) {
       popParams[0].birth = 1.0;
       popParams[0].death = death;
     } else {
-      throw std::invalid_argument("this ain't a valid typeFitness");
+      throw std::invalid_argument("this ain't a valid typeModel");
     }
   }
 
@@ -1005,6 +1030,10 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
     }
     
     iter++;
+    
+    if( !(iter % iterInterrupt))
+      Rcpp::checkUserInterrupt();
+    
     if(verbosity > 1) {
       if(! (iter % iterL) ) {
 	Rcpp::Rcout << "\n\n    ... iteration " << iter;
@@ -1254,10 +1283,15 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
 	  nr_fitness(tmpParam, popParams[nextMutant],
 		     newGenotype,
 		     fitnessEffects,
-		     typeFitness, genTime,
+		     typeModel, genTime,
 		     adjust_fitness_B, adjust_fitness_MF);
 	
 	  if(tmpParam.birth > 0.0) {
+	    //FIXME: phylog
+	    if(keepPhylog)
+	      addToPhylog(phylog, Genotypes[nextMutant], newGenotype, currentTime,
+			  intName, genesInFitness);
+	    
 	    tmpParam.numMutablePos = numMutablePosParent - 1;
 	    if(mutatorGenotype)
 	      tmpParam.mutation = mu * tmpParam.birth * tmpParam.numMutablePos;
@@ -1378,7 +1412,11 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
       nr_sample_all_pop_P(sp_to_remove, 
 		       popParams, Genotypes, tSample);
       timeNextPopSample += sampleEvery;
-      
+      // When we call nr_totPopSize ... species that existed between
+      // their creation and sampling time are never reflected. That is OK.
+      // This is on purpose, but if you track the phylogeny, you might see
+      // in the phylogeny things that never get reflected in the pops.by.time
+      // object.
       if(sp_to_remove.size())
 	remove_zero_sp_nr(sp_to_remove, Genotypes, popParams, mapTimes);
 
@@ -1413,23 +1451,23 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
       }
       
       computeMcFarlandError(e1, n_0, n_1, tps_0, tps_1, 
-			    typeFitness, totPopSize, K); //, initSize);
+			    typeModel, totPopSize, K); //, initSize);
 
       if(simulsDone)
 	break; //skip last updateRates
 
-      if( (typeFitness == "beerenwinkel") ) {
+      if( (typeModel == TypeModel::beerenwinkel) ) {
 	updateRatesBeeren(popParams, adjust_fitness_B,
 			  initSize, currentTime, alpha, totPopSize,
 			  mutatorGenotype, mu);
-      } else if( (typeFitness == "mcfarland0") ) {
+      } else if( (typeModel == TypeModel::mcfarland0) ) {
 	updateRatesMcFarland0(popParams, adjust_fitness_MF,
 			     K, totPopSize,
 			     mutatorGenotype, mu);
-      } else if( (typeFitness == "mcfarland") ) {
+      } else if( (typeModel == TypeModel::mcfarland) ) {
 	updateRatesMcFarland(popParams, adjust_fitness_MF,
 			     K, totPopSize);
-      } else if( (typeFitness == "mcfarlandlog") ) {
+      } else if( (typeModel == TypeModel::mcfarlandlog) ) {
 	updateRatesMcFarlandLog(popParams, adjust_fitness_MF,
 			     K, totPopSize);
       }
@@ -1463,7 +1501,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 			double finalTime,
 			int initSp,
 			int initIt,
-			int seed,
+			double seed,
 			int verbosity,
 			int speciesFS,
 			double ratioForce,
@@ -1481,21 +1519,45 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 			int maxNumTries,
 			bool errorHitMaxTries,
 			double minDetectDrvCloneSz,
-			double extraTime) {  
+			double extraTime,
+			bool keepPhylog) {  
   precissionLoss();
   const std::vector<int> initMutant = Rcpp::as<std::vector<int> >(initMutant_);
-  // const std::string typeFitness = as<std::string>(typeFitness_);
-  const std::string typeFitness = Rcpp::as<std::string>(typeFitness_); // no need to do [0]
-  
-  const double genTime = 4.0; // should be a parameter. For Bozic only.
-  
-  std::mt19937 ran_gen(seed);
+  const TypeModel typeModel = stringToModel(Rcpp::as<std::string>(typeFitness_));
 
+  const double genTime = 4.0; // should be a parameter. For Bozic only.
+
+  //If seed is -9, then use automatic seed.
+
+
+  // Code when using randutils
+  // randutils::mt19937_rng ran_gen;
+  // if(seed == 0)
+  //   ran_gen.seed();
+  // else {
+  //   ran_gen.seed(static_cast<unsigned int>(seed));
+  //   // The next does not solve the differences between clang and gcc. So
+  //   // keep it simple.
+  //   // std::seed_seq s1{static_cast<unsigned int>(seed)};
+  //   // ran_gen.seed(s1);
+  // }
+ 
+  unsigned int rseed = static_cast<unsigned int>(seed);
+  if(seed == 0) {
+    rseed = std::random_device{}();
+  }
+  std::mt19937 ran_gen(rseed);
+
+  
   
   if(K < 1 )
     throw std::range_error("K < 1.");
   fitnessEffectsAll fitnessEffects =  convertFitnessEffects(rFE);
-
+  //Used at least twice
+  std::map<int, std::string> intName = mapGenesIntToNames(fitnessEffects);
+  fitness_as_genes genesInFitness = fitnessAsGenes(fitnessEffects);
+  PhylogName phylog;
+  
   bool runAgain = true;
   bool reachDetection = false;
   //Output
@@ -1604,6 +1666,8 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   // tps_1 = totPopSize;
 
     try {
+      Rcpp::checkUserInterrupt();
+
       // it is CRUCIAL that several entries are zeroed (or -1) at the
       // start of innerBNB now that we do multiple runs if onlyCancer = true.
       nr_innerBNB(
@@ -1612,7 +1676,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 	       K,
 	       alpha,
 	       genTime,
-	       typeFitness,
+	       typeModel,
 	       mutatorGenotype,
 	       mu,
 	       death,
@@ -1647,7 +1711,11 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 	       reachDetection,
 	       ran_gen,
 	       runningWallTime,
-	       hittedWallTime);
+		  hittedWallTime,
+		  intName,
+		  genesInFitness,
+		  phylog,
+		  keepPhylog);
       ++numRuns;
       forceRerun = false;
     } catch (rerunExcept &e) {
@@ -1662,7 +1730,8 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 		     List::create(Named("UnrecoverExcept") = true,
 				  Named("ExceptionMessage") = e.what()));
     } catch (...) {
-      Rcpp::Rcout << "\n Unknown unrecoverable exception. Aborting. \n";
+      Rcpp::Rcout << "\n Unknown unrecoverable exception. Aborting."
+		  << "(User interrupts also generate this).\n";
       return
 	List::create(Named("other") =
 		     List::create(Named("UnrecoverExcept") = true,
@@ -1740,9 +1809,9 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 
   // whichDrivers(totalPresentDrivers, occurringDrivers, countByDriver);
 
-  std::map<int, std::string> intName = mapGenesIntToNames(fitnessEffects);
+  // std::map<int, std::string> intName = mapGenesIntToNames(fitnessEffects);
   std::vector<std::string> genotypesAsStrings =
-    genotypesToNameString(uniqueGenotypes_vector_nr, fitnessEffects, intName);
+    genotypesToNameString(uniqueGenotypes_vector_nr, genesInFitness, intName);
   std::string driversAsString =
     driversToNameString(presentDrivers, intName);
 
@@ -1757,7 +1826,6 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   NumericMatrix perSampleStats(outNS_i + 1, 5);
   fill_SStats(perSampleStats, sampleTotPopSize, sampleLargestPopSize,
   	      sampleLargestPopProp, sampleMaxNDr, sampleNDrLargestPop);
-
 
 
   // // // debuggin: precompute things
@@ -1775,6 +1843,15 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 
   // Rcpp::List returnGenotypesO = Rcpp::wrap(uniqueGenotypesV);
 
+  // if(keepPhylog) {
+  //   Rcpp::DataFrame PhylogDF = Rcpp::DataFrame::create(Named("parent") = phylog.parent,
+  // 						       Named("child") = phylog.child,
+  // 						       Named("time") = phylog.time);
+  // } else {
+  //   Rcpp::DataFrame PhylogDF = Rcpp::DataFrame::create(Named("parent") = NA,
+  // 						       Named("child") = NA,
+  // 						       Named("time") = NA);
+  // }
  
   return
     List::create(Named("pops.by.time") = outNS,
@@ -1799,7 +1876,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 		 Named("other") = List::create(Named("attemptsUsed") = numRuns,
 					       Named("errorMF") = 
 					       returnMFE(e1, K, 
-							 typeFitness),
+							 typeModel),
 					       Named("errorMF_size") = e1,
 					       Named("errorMF_n_0") = n_0,
 #ifdef MIN_RATIO_MUTS_NR
@@ -1812,6 +1889,11 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 					       Named("minBMratio") = -99,
 #endif
 					       Named("errorMF_n_1") = n_1,
+					       Named("PhylogDF") =  DataFrame::create(
+										      Named("parent") = phylog.parent,
+										      Named("child") = phylog.child,
+										      Named("time") = phylog.time
+										      ),
 					       Named("UnrecoverExcept") = false)
 		 );
 

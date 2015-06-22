@@ -244,6 +244,7 @@ need that for your usual interactive work).
 
 <<results="hide">>=
 library(OncoSimulR)
+packageVersion("OncoSimulR")
 library(graph)
 library(igraph)
 @ 
@@ -2313,15 +2314,16 @@ plot(pancr)
 
 Of course the ``s'' and ``sh'' are set arbitrarily here.
 
-
+\clearpage
 \subsection{Raphael and Vandin's modules}\label{raphael-ex}
 
 In \cite{Raphael2014a}, Raphael and Vandin show several progression models
-in terms of modules. The extended poset for the colorectal cancer model in
-their Figure 4.a is (s and sh are arbitrary):
+in terms of modules. We can code the extended poset for the colorectal
+cancer model in their Figure 4.a is (s and sh are arbitrary):
 
 
 <<fig.height = 4>>=
+
 rv1 <- allFitnessEffects(data.frame(parent = c("Root", "A", "KRAS"),
                                     child = c("A", "KRAS", "FBXW7"),
                                     s = 0.1,
@@ -2336,13 +2338,14 @@ plot(rv1, expandModules = TRUE, autofit = TRUE)
 
 @ 
 
-We use the (experimental) \Rcode{autofit} option to fit the labels to the
-edges.
+We have used the (experimental) \Rcode{autofit} option to fit the labels to the
+edges. Note how we can use the same name for genes and modules, but we
+need to specify all the modules. 
 
-
+\clearpage
 Their Figure 5b is
 
-<<fig.height=12>>=
+<<fig.height=6>>=
 
 rv2 <- allFitnessEffects(data.frame(parent = c("Root", "1", "2", "3", "4"),
                                     child = c("1", "2", "3", "4", "ELF3"),
@@ -2355,12 +2358,17 @@ rv2 <- allFitnessEffects(data.frame(parent = c("Root", "1", "2", "3", "4"),
                              "3" = "BRAF, KRAS, NRAS",
                              "4" = "SMAD2, SMAD4, SOX9",
                              "ELF3" = "ELF3"))
-plot(rv2, "igraph", expandModules = TRUE, 
-     layout = layout.reingold.tilford,
-     autofit = TRUE)
-
+plot(rv2, expandModules = TRUE,   autofit = TRUE)
 @ 
 
+%%very poor rendering in the PDF, in separate page, etc.
+%% plot(rv2, "igraph", expandModules = TRUE, 
+%%      layout = layout.reingold.tilford,
+%%      autofit = TRUE,
+%%      scale_char = 8)
+
+
+\clearpage
 \section{Running the simulations}\label{simul}
 
 
@@ -2393,7 +2401,7 @@ summary(mcf1s)
 
 
 \subsection{McFarland model with 50000 passengers and 70
-  drivers}\label{mcf50070}
+  drivers: clonal competition}\label{mcf50070}
 
 The next is too slow (takes a couple of minutes in an i5 laptop) and too
 big to run in a vignette, because we keep track of over 4000 different
@@ -2426,7 +2434,13 @@ object has been trimmed by removing empty passenger rows in the Genotype matrix)
 
 <<fig.width=6>>=
 data(mcfLs)
-plot(mcfLs, addtot = TRUE, lwdClone = 0.9, log = "")
+plot(mcfLs, addtot = TRUE, lwdClone = 0.9, log = "", plotDiversity = TRUE)
+@ 
+The argument \Rcode{plotDiversity = TRUE} asks to show a small plot on top
+with Shannon's diversity index.
+
+
+<<>>=
 summary(mcfLs)
 ## number of passengers per clone
 summary(colSums(mcfLs$Genotypes[-(1:70), ]))
@@ -2499,7 +2513,7 @@ sb <-  oncoSimulIndiv(examplesFitnessEffects$cbn1,
 summary(sb)
 @ 
 
-\subsection{Simulation with order effects and some clonal competition}\label{clonalint}
+\subsection{Simulation with order effects and McFL model}\label{clonalint}
 %% Interesting to show effects of order: o3
 
 %% Increase mutation rate, so does not take forever
@@ -2533,12 +2547,12 @@ summary(sb)
 
 %% @ 
 
-(We use a somewhat large mutation rate tha usual, so that the simulation
+(We use a somewhat large mutation rate than usual, so that the simulation
 runs quickly.)
 
 <<fig.width=6>>=
 
-set.seed(3)
+set.seed(4321)
 tmp <-  oncoSimulIndiv(examplesFitnessEffects[["o3"]],
                        model = "McFL", 
                        mu = 5e-5,
@@ -2548,29 +2562,32 @@ tmp <-  oncoSimulIndiv(examplesFitnessEffects[["o3"]],
                        max.num.tries = 10,
                        keepEvery = 5,
                        initSize = 2000,
-                       finalTime = 8000,
+                       finalTime = 6000,
                        onlyCancer = FALSE); 
-plot(tmp, addtot = TRUE, log = "")
+plot(tmp, addtot = TRUE, log = "", plotDiversity = TRUE)
 
 @ 
 
-In this example, we can see clonal interference between clones with the
-same number of drivers and between clones with different numbers of
-drivers. And this is one case where the summary statistics about number of
-drivers says little of value, as fitness is very different for genotypes
-with the same number of mutations, and does not increase in a simple way
-with drivers:
+In this example (and at least under Linux, with both GCC and clang), we
+can see that the mutants with three drivers do not get established when we
+stop the simulation at time 6000. This is one case where the summary
+statistics about number of drivers says little of value, as fitness is
+very different for genotypes with the same number of mutations, and does
+not increase in a simple way with drivers:
 
 <<>>=
 evalAllGenotypes(examplesFitnessEffects[["o3"]])
 @ 
 
-Another run that shows clonal interference between clones with different
-numbers of drivers:
+In this case, the clones with three drivers end up displacing those with
+two by the time we stop; moreover, notice how those with one driver never
+really grow to a large population size, so we basically go from a
+population with clones with zero drivers to a population made of clones
+with two or three drivers:
 
-<<fig.width=6>>=
-
-set.seed(2)
+%%<<fig.width=6>>=
+<<>>=
+set.seed(15)
 tmp <-  oncoSimulIndiv(examplesFitnessEffects[["o3"]],
                        model = "McFL", 
                        mu = 5e-5,
@@ -2582,34 +2599,41 @@ tmp <-  oncoSimulIndiv(examplesFitnessEffects[["o3"]],
                        initSize = 2000,
                        finalTime = 20000,
                        onlyCancer = FALSE,
-                       extraTime = 1000)
+                       extraTime = 1500)
 tmp
-plot(tmp, addtot = TRUE, log = "")
-
+plot(tmp, addtot = TRUE, log = "", plotDiversity = TRUE)
 @
 
+As before, the argument \Rcode{plotDiversity = TRUE} asks to show a small
+plot on top with Shannon's diversity index. Here, as before, the quick
+clonal expansion of the clone with two drivers leads to a sudden drop in
+diversity (for a while, the population is made virtually of a single
+clone). Note, however, that compared to section \ref{mcf50070}, we are
+modeling here a scenario with very few genes, and correspondingly very few
+possible genotypes, and thus it is not strange that we observe very little
+diversity.
 
-These patterns, however, are not always present
+%% These patterns, however, are not always present
 
-<<fig.width=6>>=
+%% <<fig.width=6>>=
 
-set.seed(9) 
-tmp <-  oncoSimulIndiv(examplesFitnessEffects[["o3"]],
-                       model = "McFL", 
-                       mu = 5e-5,
-                       detectionSize = 1e8, 
-                       detectionDrivers = 3,
-                       sampleEvery = 0.015,
-                       max.num.tries = 10,
-                       keepEvery = 5,
-                       initSize = 2000,
-                       finalTime = 10000,
-                       onlyCancer = FALSE,
-                       extraTime = 10)
-tmp
-plot(tmp, addtot = TRUE, log = "")
+%% set.seed(7654) 
+%% tmp <-  oncoSimulIndiv(examplesFitnessEffects[["o3"]],
+%%                        model = "McFL", 
+%%                        mu = 5e-5,
+%%                        detectionSize = 1e8, 
+%%                        detectionDrivers = 3,
+%%                        sampleEvery = 0.015,
+%%                        max.num.tries = 10,
+%%                        keepEvery = 5,
+%%                        initSize = 2000,
+%%                        finalTime = 10000,
+%%                        onlyCancer = FALSE,
+%%                        extraTime = 10)
+%% tmp
+%% plot(tmp, addtot = TRUE, log = "")
 
-@ 
+%% @ 
 
 
 %% Although in other runs we do not reach the three gene mutant and continue
@@ -2650,9 +2674,8 @@ lead to trouble when using Bozic's model:
 
 %% Even simpler
 
+%% ## set.seed(987)
 <<>>=
-
-set.seed(987)
 i1 <- allFitnessEffects(noIntGenes = c(1))
 evalAllGenotypes(i1, order = FALSE, addwt = TRUE, 
                  model = "Bozic")
@@ -3205,10 +3228,184 @@ thus in the output you can have two columns with both genes mutated.
 
 
 
+\section{Showing the true phylogenetic relationships of clones}\label{phylog}
+
+If you run simulations with the \texttt{keepPhylog = TRUE} argument, the
+simulations keep track of when every clone is generated, and that will
+allow us to see the true phylogenetic relationships of clones. (This is
+disabled by default: the code runs a little bit slower and the result is
+larger.)
 
 
+Let us re-run a previous example:
+
+<<>>=
+
+set.seed(15)
+tmp <-  oncoSimulIndiv(examplesFitnessEffects[["o3"]],
+                       model = "McFL", 
+                       mu = 5e-5,
+                       detectionSize = 1e8, 
+                       detectionDrivers = 3,
+                       sampleEvery = 0.015,
+                       max.num.tries = 10,
+                       keepEvery = 5,
+                       initSize = 2000,
+                       finalTime = 20000,
+                       onlyCancer = FALSE,
+                       extraTime = 1500,
+                       keepPhylog = TRUE)
+tmp
+@ 
+
+We can plot the phylogenetic relationships of every clone ever created
+(with fitness larger than 0 ---clones without viability are never shown):
+
+<<>>=
+plotClonePhylog(tmp, N = 0)
+@ 
+
+However, we often only want to show clones that exist (have number of
+cells $>0$) at a certain time (while of course showing all of their
+ancestors, even if those are not extinct ---i.e., regardless of their
+current numbers).
+
+<<>>=
+plotClonePhylog(tmp, N = 1)
+@ 
+
+If we set \texttt{keepEvents = TRUE} the arrows show how many times each
+clone appeared:
+
+(The next can take a while)
+<<>>=
+plotClonePhylog(tmp, N = 1, keepEvents = TRUE)
+@ 
+
+And we can plot the phylogeny so the vertical axis is proportional to time
+(though you might see overlap of nodes if a child node appeared shortly
+after the parent):
+
+<<>>=
+plotClonePhylog(tmp, N = 1, timeEvents = TRUE)
+@ 
+
+We can obtain the adjacency matrix doing
+
+<<fig.keep="none">>=
+get.adjacency(plotClonePhylog(tmp, N = 1, returnGraph = TRUE))
+
+@ 
 
 
+We can see another example here:
+
+<<>>=
+
+set.seed(456)
+mcf1s <-  oncoSimulIndiv(mcf1,
+                         model = "McFL", 
+                         mu = 1e-7,
+                         detectionSize = 1e8, 
+                         detectionDrivers = 100,
+                         sampleEvery = 0.02,
+                         keepEvery = 2,
+                         initSize = 2000,
+                         finalTime = 1000,
+                         onlyCancer = FALSE,
+                         keepPhylog = TRUE)
+
+@ 
+
+Showing only clones that exist at the end of the simulation (and all their
+parents):
+
+<<>>=
+plotClonePhylog(mcf1s, N = 1)
+@ 
+
+Notice that the labels here do not have a ``\_'', since there were no order
+effects in fitness. However, the labels show the genes that are
+mutated, just as before.
+
+Similar, but with vertical axis proportional to time:
+
+
+<<>>=
+plotClonePhylog(mcf1s, N = 1, timeEvents = TRUE)
+@ 
+
+What about those that existed in the last 200 time units?
+<<>>=
+plotClonePhylog(mcf1s, N = 1, t = c(800, 1000))
+@ 
+
+And try now to show also when the clones appeared (we restrict the time
+to between 900 and 1000, to avoid too much clutter):
+<<>>=
+plotClonePhylog(mcf1s, N = 1, t = c(900, 1000), timeEvents = TRUE)
+@ 
+
+(By playing with \texttt{t}, it should be possible to obtain animations of
+the phylogeny. We will not pursue it here.)
+
+
+If the previous graph seems cluttered, we can represent it in a different
+way by calling \CRANpkg{igraph} directly after storing the graph and using
+the default layout:
+
+<<fig.keep="none">>=
+g1 <- plotClonePhylog(mcf1s, N = 1, t = c(900, 1000), returnGraph = TRUE)
+@ 
+
+<<>>=
+plot(g1)
+@ 
+
+which might be easier to show complex relationships or identify central or
+key clones.
+
+
+%% There is support in R for phylog, blablabal. But does not work for our
+%% specific problem. So use igraph blablabla
+
+
+%% <<>>=
+%% plotClonePhylog(mcf1s, TRUE, FALSE, FALSE)
+%% plotClonePhylog(tmp, FALSE, FALSE, FALSE)
+%% @ 
+
+\subsection{Phylogenies from multiple runs}\label{phylogmult}
+
+If you use \Rfunction{oncoSimulPop} you can store and plot the phylogenies
+of the different runs:
+
+<<>>=
+oi <- allFitnessEffects(orderEffects =
+               c("F > D" = -0.3, "D > F" = 0.4),
+               noIntGenes = rexp(5, 10),
+                          geneToModule =
+                              c("Root" = "Root",
+                                "F" = "f1, f2, f3",
+                                "D" = "d1, d2") )
+oiI1 <- oncoSimulIndiv(oi, model = "Exp")
+oiP1 <- oncoSimulPop(4, oi,
+                     keepEvery = 10,
+                     mc.cores = 2,
+                     keepPhylog = TRUE)
+
+@ 
+
+We will plot the first two:
+<<>>=
+par(mfrow = c(2, 1))
+plotClonePhylog(oiP1[[1]])
+plotClonePhylog(oiP1[[2]])
+@ 
+
+
+This is so far disabled in function \Rfunction{oncoSimulSample}, since
+that function is optimized for other uses. This might change in the future.
 
 
 \section{Using v.1 posets and simulations}\label{v1}
@@ -3428,6 +3625,7 @@ literature on oncogenetic trees et al. Function \Rfunction{simOGraph}
 might help here. 
 
 <<>>=
+## No seed fixed, so reruns will give different DAGs.
 (a1 <- simOGraph(10))
 library(graph) ## for simple plotting
 plot(as(a1, "graphNEL"))

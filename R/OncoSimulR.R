@@ -14,7 +14,8 @@
 ## along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-
+## Does it even make sense to keepPhylog with oncoSimulSample?
+## Yes, but think what we store.
 
 
 oncoSimulSample <- function(Nindiv,
@@ -46,6 +47,7 @@ oncoSimulSample <- function(Nindiv,
                             extraTime = 0,
                             finalTime = 0.25 * 25 * 365,
                             onlyCancer = TRUE,
+                            keepPhylog = FALSE, 
                             max.memory = 2000,
                             max.wall.time.total = 600,
                             max.num.tries.total = 500 * Nindiv,
@@ -54,13 +56,18 @@ oncoSimulSample <- function(Nindiv,
                             ## errorHitMaxTries = TRUE,
                             verbosity  = 1,
                             typeSample = "whole",
-                            thresholdWhole = 0.5){
+                            thresholdWhole = 0.5,
+                            seed = "auto"){
     ## No longer using mclapply, because of the way we use the limit on
     ## the number of tries.
     
     ## leaving detectionSize and detectionDrivers as they are, produces
     ## the equivalente of uniform sampling. For last, fix a single number
 
+    if(keepPhylog)
+        warning(paste("oncoSimulSample does not return the phylogeny",
+                      "for now, so there is little point in storing it."))
+    
     if(max.num.tries.total < Nindiv)
         stop(paste("You have requested something impossible: ",
                    "max.num.tries.total < Nindiv"))
@@ -160,7 +167,9 @@ oncoSimulSample <- function(Nindiv,
                                keepEvery = -9,
                                onlyCancer = onlyCancer,
                                errorHitWallTime = TRUE,
-                               errorHitMaxTries = TRUE)
+                               errorHitMaxTries = TRUE,
+                               seed = seed,
+                               keepPhylog = keepPhylog)
         
         if(tmp$other$UnrecoverExcept) {
             return(f.out.unrecover.except(tmp))
@@ -273,13 +282,15 @@ oncoSimulPop <- function(Nindiv,
                          ##                       5 * sampleEvery),
                          finalTime = 0.25 * 25 * 365,
                          onlyCancer = TRUE,
+                         keepPhylog = FALSE,
                          max.memory = 2000,
                          max.wall.time = 200,
                          max.num.tries = 500,
                          errorHitWallTime = TRUE,
                          errorHitMaxTries = TRUE,
                          verbosity  = 0,
-                         mc.cores = detectCores()) {
+                         mc.cores = detectCores(),
+                         seed = "auto") {
 
     if(.Platform$OS.type == "windows") {
         if(mc.cores != 1)
@@ -310,7 +321,9 @@ oncoSimulPop <- function(Nindiv,
                         max.num.tries = max.num.tries,
                         errorHitWallTime = errorHitWallTime,
                         errorHitMaxTries = errorHitMaxTries,
-                        verbosity = verbosity),
+                        verbosity = verbosity,
+                        seed = seed, keepPhylog = keepPhylog
+                    ),
                     mc.cores = mc.cores
                     )
     class(pop) <- "oncosimulpop"
@@ -341,6 +354,7 @@ oncoSimulIndiv <- function(fp,
                            ##                     5 * sampleEvery),
                            finalTime = 0.25 * 25 * 365,
                            onlyCancer = TRUE,
+                           keepPhylog = FALSE,
                            max.memory = 2000,
                            max.wall.time = 200,
                            max.num.tries = 500,
@@ -387,13 +401,6 @@ oncoSimulIndiv <- function(fp,
         stop("mutation rate (mu) is negative")
     }
 
-    if(is.null(seed)) {## passing a null creates a random seed
-        ## name is a legacy. This is really the seed for the C++ generator.
-        seed <- as.integer(round(runif(1, min = 0, max = 2^16)))
-    }
-    if(verbosity >= 2)
-        cat(paste("\n Using ", seed, " as seed for C++ generator\n"))
-
     if( (keepEvery > 0) & (keepEvery < sampleEvery)) {
         keepEvery <- sampleEvery
         warning("setting keepEvery <- sampleEvery")
@@ -415,9 +422,19 @@ oncoSimulIndiv <- function(fp,
                        "You must specify all of poset, numPassengers",
                        "s, and sh.")
             stop(m)
-            if(length(initMutant) > 1)
-                stop("With the old poset, initMutant can only take a single value.")
+           
         }
+        if(length(initMutant) > 1)
+            stop("With the old poset, initMutant can only take a single value.")
+        ## Seeding C++ is now much better in new version
+        if(is.null(seed) || (seed == "auto")) {## passing a null creates a random seed
+            ## name is a legacy. This is really the seed for the C++ generator.
+            ## Nope, we cannot use 2^32, because as.integer will fail.
+            seed <- as.integer(round(runif(1, min = 0, max = 2^16)))
+        }
+        if(verbosity >= 2)
+            cat(paste("\n Using ", seed, " as seed for C++ generator\n"))
+
         ## if(message.v1)
         ##     message("You are using the old poset format. Consider using the new one.")
    
@@ -463,6 +480,18 @@ oncoSimulIndiv <- function(fp,
                   silent = !verbosity)
         objClass <- "oncosimul"
     } else {
+        if(is.null(seed)) {## Passing a null creates a random seed
+            ## We use a double, to be able to pass in range > 2^16.
+            ## Do not use 0, as that is our way of signaling to C++ to
+            ## generate the seed.
+            seed <- round(runif(1, min = 1, max = 2^32))
+            if(verbosity >= 2)
+                cat(paste("\n Using ", seed, " as seed for C++ generator\n"))
+        } else if(seed == "auto") {
+            seed <- 0.0
+            if(verbosity >= 2)
+                cat("\n A (high quality) random seed will be generated in C++\n")
+        }
         op <- try(nr_oncoSimul.internal(rFE = fp, 
                                         birth = birth,
                                         death = death,  
@@ -491,7 +520,8 @@ oncoSimulIndiv <- function(fp,
                                         detectionDrivers = detectionDrivers,
                                         onlyCancer = onlyCancer,
                                         errorHitWallTime = errorHitWallTime,
-                                        errorHitMaxTries = errorHitMaxTries),
+                                        errorHitMaxTries = errorHitMaxTries,
+                                        keepPhylog = keepPhylog),
                   silent = !verbosity)
         objClass <- c("oncosimul", "oncosimul2")
     }
@@ -583,6 +613,7 @@ plot.oncosimulpop <- function(x, ask = TRUE,
                               thinData = FALSE,
                               thinData.keep = 0.1,
                               thinData.min = 2,
+                              plotDiversity = FALSE,
                               ...
                               ) {
     op <- par(ask = ask)
@@ -605,6 +636,7 @@ plot.oncosimulpop <- function(x, ask = TRUE,
                                   thinData = thinData,
                                   thinData.keep = thinData.keep,
                                   thinData.min = thinData.min,
+                                  plotDiversity = plotDiversity,
                                   ...))
 }
 
@@ -625,6 +657,7 @@ plot.oncosimul <- function(x, col = c(8, "orange", 6:1),
                            thinData = FALSE,
                            thinData.keep = 0.1,
                            thinData.min = 2,
+                           plotDiversity = FALSE,
                            ...
                            ) {
 
@@ -643,6 +676,17 @@ plot.oncosimul <- function(x, col = c(8, "orange", 6:1),
             yl <- c(1, max(apply(x$pops.by.time[, -1, drop = FALSE], 1, sum)))
         else
             yl <- c(0, max(apply(x$pops.by.time[, -1, drop = FALSE], 1, sum)))
+    }
+    if(plotDiversity) {
+        par(fig = c(0, 1, 0.8, 1))
+        m <- par()$mar
+        m[c(1, 3)] <- c(0, 0.7)
+        op <- par(mar = m )
+        plotShannon(x)
+        par(op)
+        m[c(3)] <- 0.2
+        op <- par(mar = m )
+        par(fig = c(0, 1, 0, 0.8), new = TRUE)  
     }
     if(plotClones) {
         plotClones(x,
@@ -675,6 +719,7 @@ plot.oncosimul <- function(x, col = c(8, "orange", 6:1),
                      log = log, ylim = yl,
                      ...)
     }
+    
 }
 
 
@@ -695,6 +740,127 @@ plotPoset <- function(x, names = NULL, addroot = FALSE,
 plotAdjMat <- function(adjmat) {
     plot(as(adjmat, "graphNEL"))
 }
+
+
+
+which_N_at_T <- function(x, N = 1, t = "last") {
+    if((length(t) == 1) && (t == "last"))
+        T <- nrow(x$pops.by.time)
+    else if(length(t) == 2) {
+        if(t[1] < 0)
+            warning("smallest t must be >= 0; setting to 0")
+        if(t[1] > t[2])
+            stop("t[1] must be <= t[2]")
+        if(t[2] > max(x$pops.by.time[, 1]))
+            message("t[2] > largest time; setting it to the max")
+        T <- which(
+            (x$pops.by.time[, 1] >= t[1]) &
+                (x$pops.by.time[, 1] <= t[2]))
+    }
+    else
+        stop("t must be either 'last' or a vector of length 2")
+    z <- which(x$pops.by.time[T, -1, drop = FALSE] >= N, arr.ind = TRUE)[, 2]
+    z <- unique(z) ## recall we removed first column but we index from first.
+    return(z)
+}
+
+phylogClone <- function(x, N = 1, t = "last", keepEvents = TRUE) {
+    if(!inherits(x, "oncosimul2"))
+        stop("Phylogenetic information is only stored with v >= 2")
+    z <- which_N_at_T(x, N, t)
+    tG <- x$GenotypesLabels[z] ## only for GenotypesLabels we keep all
+                               ## sample size info at each period
+    df <- x$other$PhylogDF
+    if(!keepEvents) { ## is this just a graphical thing? or not?
+        df <- df[!duplicated(df[, c(1, 2)]), ]
+    }
+    g <- igraph::graph.data.frame(df[, c(1, 2)])
+    ## nodes <- match(tG, V(g)$name)
+    nodesInP <- unique(unlist(igraph::neighborhood(g, order = 1e9,
+                                                   nodes = tG,
+                                                   mode = "in")))
+    ## Remember that the phylog info can contain clones that are
+    ## not in pops.by.time, as they go extinct between creation
+    ## and sampling.
+    allLabels <- unique(as.character(unlist(df[, c(1, 2)])))
+    nodesRm <- setdiff(allLabels, V(g)$name[nodesInP])
+    g <- igraph::delete.vertices(g, nodesRm)
+    tmp <- list(graph = g, df = df)
+    class(tmp) <- c(class(tmp), "phylogClone")
+    return(tmp)
+    ## trivial to return an adjacency matrix if needed. The keepEvents = FALSE
+}
+
+
+
+plotClonePhylog <- function(x, N = 1, t = "last",
+                            timeEvents = FALSE,
+                            keepEvents = FALSE,
+                            fixOverlap = TRUE,
+                            returnGraph = FALSE, ...) {
+    if(!inherits(x, "oncosimul2"))
+        stop("Phylogenetic information is only stored with v >=2")
+    if(nrow(x$other$PhylogDF) == 0)
+        stop("It seems you run the simulation with keepPhylog= FALSE")
+    pc <- phylogClone(x, N, t, keepEvents)
+    l0 <- igraph::layout.reingold.tilford(pc$g)
+    if(!timeEvents) {
+        plot(pc$g, layout = l0)
+    } else {
+        l1 <- l0
+        indexAppear <- match(V(pc$g)$name, as.character(pc$df[, 2]))
+        firstAppear <- pc$df$time[indexAppear]
+        firstAppear[1] <- 0
+        l1[, 2] <- (max(firstAppear) - firstAppear)
+        if(fixOverlap) {
+            dx <- which(duplicated(l1[, 1]))
+            if(length(dx)) {
+                ra <- range(l1[, 1])
+                l1[dx, 1] <- runif(length(dx), ra[1], ra[2])
+            }
+        }
+        plot(pc$g, layout = l1)         
+    }
+    if(returnGraph)
+        return(pc$g)
+}
+
+
+
+## plotClonePhylog <- function(x, timeEvent = FALSE,
+##                             showEvents = TRUE,
+##                             fixOverlap = TRUE) {
+##     if(!inherits(x, "oncosimul2"))
+##         stop("Phylogenetic information is only stored with v >=2")
+##     if(nrow(x$other$PhylogDF) == 0)
+##         stop("It seems you run the simulation with keepPhylog= FALSE")
+##     ## requireNamespace("igraph")
+##     df <- x$other$PhylogDF
+##     if(!showEvents) {
+##         df <- df[!duplicated(df[, c(1, 2)]), ]
+##     }
+##     g <- igraph::graph.data.frame(df)
+##     l0 <- igraph::layout.reingold.tilford(g)
+##     if(!timeEvent) {
+##         plot(g, layout = l0)
+##     } else {
+##         l1 <- l0
+##         indexAppear <- match(V(g)$name, as.character(df[, 2]))
+##         firstAppear <- df$time[indexAppear]
+##         firstAppear[1] <- 0
+##         l1[, 2] <- (max(firstAppear) - firstAppear)
+##         if(fixOverlap) {
+##             dx <- which(duplicated(l1[, 1]))
+##             if(length(dx)) {
+##                 ra <- range(l1[, 1])
+##                 l1[dx, 1] <- runif(length(dx), ra[1], ra[2])
+##             }
+##         }
+##         plot(g, layout = l1)         
+##     }
+## }
+
+
 
 
 
@@ -974,6 +1140,36 @@ thin.pop.data <- function(x, keep = 0.1, min.keep = 3) {
     return(x)
 }
 
+shannonI <- function(x) {
+    sx <- sum(x)
+    p <- x/sx
+    p <- p[p > 0]
+    return(-sum(p * log(p)))
+}
+
+plotShannon <- function(z) {
+    h <- apply(z$pops.by.time[, 2:ncol(z$pops.by.time), drop = FALSE],
+               1, shannonI)
+    plot(x = z$pops.by.time[, 1],
+         y = h, type = "l", xlab = "", ylab = "H", axes = FALSE)
+    box()
+    axis(2)
+}
+
+## simpsonI <- function(x) {
+##     sx <- sum(x)
+##     p <- x/sx
+##     p <- p[p > 0]
+##     return(sum(p^2)))
+## }
+
+## plotSimpson <- function(z) {
+    
+##     h <- apply(z$pops.by.time[, 2:ncol(z$pops.by.time), drop = FALSE],
+##                1, shannonI)
+##     plot(x = z$pops.by.time[, 1],
+##          y = h, lty = "l", xlab = "", ylab = "H")
+## }
 
 
 plotClones <- function(z, ndr = NULL, na.subs = TRUE,
@@ -1001,6 +1197,7 @@ plotClones <- function(z, ndr = NULL, na.subs = TRUE,
             log = log, type = type,
             col = col, lty = lty,
             ...)
+    box()
 }
 
 

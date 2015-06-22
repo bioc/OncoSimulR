@@ -28,6 +28,7 @@
                 minDetectDrvCloneSz = "auto",
                 extraTime = 0,
                 finalTime = 0.25 * 25 * 365, onlyCancer = TRUE,
+                keepPhylog = FALSE,
                 max.memory = 2000, max.wall.time = 200,
                 max.num.tries = 500,
                 errorHitWallTime = TRUE,
@@ -45,11 +46,13 @@ oncoSimulPop(Nindiv, fp, model = "Exp", numPassengers = 30, mu = 1e-6,
                 minDetectDrvCloneSz = "auto",
                 extraTime = 0,
                 finalTime = 0.25 * 25 * 365, onlyCancer = TRUE,
+                keepPhylog = FALSE,
                 max.memory = 2000, max.wall.time = 200,
                 max.num.tries = 500,
                 errorHitWallTime = TRUE,
                 errorHitMaxTries = TRUE,
-                verbosity = 0, mc.cores = detectCores())
+                verbosity = 0, mc.cores = detectCores(),
+                seed = "auto")
 
 
 oncoSimulSample(Nindiv,
@@ -81,13 +84,14 @@ oncoSimulSample(Nindiv,
                 minDetectDrvCloneSz = "auto",
                 extraTime = 0,
                 finalTime = 0.25 * 25 * 365,
-                onlyCancer = TRUE,
+                onlyCancer = TRUE, keepPhylog = FALSE,
                 max.memory = 2000,
                 max.wall.time.total = 600,
                 max.num.tries.total = 500 * Nindiv,
                 verbosity  = 1,
                 typeSample = "whole",
-                thresholdWhole = 0.5)
+                thresholdWhole = 0.5,
+                seed = "auto")
 
 
 }
@@ -255,8 +259,13 @@ to be detected.  For \code{oncoSimulSample} this can be a vector.
 
 }
 
-\item{seed}{The seed to use for the C++ random number generator. If not
-  passed explicitly (the default) then chosen from R.}
+\item{keepPhylog}{
+  If TRUE, keep track of when and from which clone each clone is
+  created. See also \code{\link{plotClonePhylog}}. 
+}
+
+%% \item{seed}{The seed to use for the C++ random number generator. If not
+%%   passed explicitly (the default) then chosen from R.}
 
 \item{initMutant}{For v.2, a vector of the mutations of the initial
   clone for the simulations. For v.1, the single mutation of the initial
@@ -353,6 +362,21 @@ to be detected.  For \code{oncoSimulSample} this can be a vector.
 
 \item{mc.cores}{Number of cores to use when simulating more than one
   individual (i.e., when calling oncoSimulPop).}
+
+\item{seed}{The seed for the C++ PRNG. You can pass a value. If you set
+  it to NULL, then a seed will be generated in R and passed to C++. If
+  you set it to "auto", then if you are using v.1, the behavior is the
+  same as if you set it to NULL (a seed will be generated in R and
+  passed to C++) but if you are using v.2, a random seed will be
+  produced in C++. %% using the randutils code from M.E.O'Neill.
+  If you need
+  reproducibility, either pass a value or set it to NULL (setting it to
+  NULL will make the C++ seed reproducible if you use the same seed in R
+  via \code{set.seed}). However, even using the same value of
+  \code{seed} is unlikely to give the exact same results between
+  platforms and compilers.  Note that the defaults are not
+  the same in \code{oncoSimulIndiv}, \code{oncoSimulPop} and
+  \code{oncoSimulSample}. }
 
 
 
@@ -590,7 +614,8 @@ m1 <- oncoSimulIndiv(p701,
                      initSize = 4000,
                      sampleEvery = 0.025,
                      finalTime = 15000,
-                     keepEvery = 5)
+                     keepEvery = 10,
+                     onlyCancer = FALSE)
 plot(m1, addtot = TRUE, log = "")
 
 
@@ -619,11 +644,11 @@ p2 <- oncoSimulSample(4, p701)
 
 
 
-#### A model similar to the one in McFarland. We use 5070 genes.
+#### A model similar to the one in McFarland. We use 2070 genes.
 
 set.seed(456)
 nd <- 70  
-np <- 5000 
+np <- 2000 
 s <- 0.1  
 sp <- 1e-3 
 spp <- -sp/(1 + sp)
@@ -659,7 +684,7 @@ oiI1$GenotypesLabels
 oiI1   ## note the order and separation by "_"
 
 
-oiP1 <- oncoSimulPop(4, oi,
+oiP1 <- oncoSimulPop(2, oi,
                      keepEvery = 10,
                      mc.cores = 2)
 summary(oiP1) 
@@ -671,7 +696,7 @@ summary(oiP1)
 samplePop(oiP1)
 
 
-oiS1 <- oncoSimulSample(4, oi)
+oiS1 <- oncoSimulSample(2, oi)
 
 ## The output contains only the summary of the runs AND
 ## the sample:
@@ -715,7 +740,7 @@ summary(pancrPop)
 pancrSPop <- samplePop(pancrPop)
 pancrSPop
 
-pancrSamp <- oncoSimulSample(4, pancr)
+pancrSamp <- oncoSimulSample(2, pancr)
 pancrSamp
                       
 }
