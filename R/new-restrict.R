@@ -98,6 +98,7 @@ gm.to.geneModuleL <- function(gm, one.to.one) {
     if(length(unique(geneMod$Gene)) != nrow(geneMod)) {
         stop("Are there identical gene names in different modules?")
     }
+    ## I think this is unreacheable now. Caught earlier.
     if(length(unique(geneMod$GeneNumID)) != nrow(geneMod)) {
         stop("Are there identical gene names in different modules?")
     }
@@ -193,7 +194,8 @@ to.long.rt <- function(rt, idm) {
         z$childNumID <- idm[z$child]
         z$parentsNumID <- idm[z$parents]
         if( any(is.na(z$parentsNumID)) ||
-           any(is.na(z$childNumID)) ) {
+            any(is.na(z$childNumID)) ) {
+            ## I think this can no longer be reached ever. Caught before.
             stop(paste("An ID is NA:",
                        "Is a gene part of two different modules?",
                        "(That includes being by itself and part",
@@ -531,46 +533,46 @@ allFitnessEffects <- function(rT = NULL,
 }
 
 
-
-rtAndGeneModule <- function(mdeps, gM = NULL) {
-    ## To show a table of restrictions when there are modules. Do not use
-    ## for anything else. Maybe as intermediate to plotting.
+## No longer used
+## rtAndGeneModule <- function(mdeps, gM = NULL) {
+##     ## To show a table of restrictions when there are modules. Do not use
+##     ## for anything else. Maybe as intermediate to plotting.
     
-    ## Specify restriction table of modules and a mapping of modules to
-    ## genes. gM is a named vector; names are modules, values are elements
-    ## of each module.
+##     ## Specify restriction table of modules and a mapping of modules to
+##     ## genes. gM is a named vector; names are modules, values are elements
+##     ## of each module.
 
-    ## We do nothing important if gM is NULL except checks
+##     ## We do nothing important if gM is NULL except checks
 
-    ## If there are modules, the table shows the individual genes.
-    checkRT(mdeps)
-    ## if(ncol(mdeps) != 5)
-    ##     stop("mdeps must be of exactly 5 columns")
-    ## if(!identical(colnames(mdeps), c("parent", "child", "s", "sh", "typeDep")))
-    ##     stop(paste("Column names of mdeps not of appropriate format. ",
-    ##                "Should be parent, child, s, sh, typeDep"))
-    if(!is.null(gM)) {
-        if(any(is.na(match(mdeps[ , 1], names(gM)))))
-            stop("Some values in parent not from a known module")
-        if(any(is.na(match(mdeps[ , 2], names(gM)))))
-            stop("Some values in child not from a known module")
-        if(any(is.na(match(names(gM), c(mdeps[, 1], mdeps[, 2])))))
-            stop("Some values in module in neither parent or child")
+##     ## If there are modules, the table shows the individual genes.
+##     checkRT(mdeps)
+##     ## if(ncol(mdeps) != 5)
+##     ##     stop("mdeps must be of exactly 5 columns")
+##     ## if(!identical(colnames(mdeps), c("parent", "child", "s", "sh", "typeDep")))
+##     ##     stop(paste("Column names of mdeps not of appropriate format. ",
+##     ##                "Should be parent, child, s, sh, typeDep"))
+##     if(!is.null(gM)) {
+##         if(any(is.na(match(mdeps[ , 1], names(gM)))))
+##             stop("Some values in parent not from a known module")
+##         if(any(is.na(match(mdeps[ , 2], names(gM)))))
+##             stop("Some values in child not from a known module")
+##         if(any(is.na(match(names(gM), c(mdeps[, 1], mdeps[, 2])))))
+##             stop("Some values in module in neither parent or child")
         
-        parent <- gM[mdeps[, 1]]
-        child <- gM[mdeps[, 2]]
-        df <- data.frame(parent = parent,
-                         child = child,
-                         s = mdeps$s,
-                         sh = mdeps$sh,
-                         typeDep = mdeps$typeDep,
-                         stringsAsFactors = FALSE)
-    } else {
-        df <- mdeps
-    }
-    rownames(df) <- seq.int(nrow(df))
-    return(df)
-}
+##         parent <- gM[mdeps[, 1]]
+##         child <- gM[mdeps[, 2]]
+##         df <- data.frame(parent = parent,
+##                          child = child,
+##                          s = mdeps$s,
+##                          sh = mdeps$sh,
+##                          typeDep = mdeps$typeDep,
+##                          stringsAsFactors = FALSE)
+##     } else {
+##         df <- mdeps
+##     }
+##     rownames(df) <- seq.int(nrow(df))
+##     return(df)
+## }
 
 ## wrap.test.rt <- function(rt, gM = NULL) {
 ##     ## FIXME add epistasis and orderEffects
@@ -579,18 +581,18 @@ rtAndGeneModule <- function(mdeps, gM = NULL) {
 ##     wrap_test_rt(lrt$long.rt, lrt$geneModule)
 ## }
 
-
-wrap.readFitnessEffects <- function(rt, epi, oe, ni, gm, echo = TRUE) {
-    tt <- allFitnessEffects(rt, epi, oe, ni, gm)
-    readFitnessEffects(tt, echo = echo)
-    ## readFitnessEffects(tt$long.rt,
-    ##                    tt$long.epistasis,
-    ##                    tt$long.orderEffects,
-    ##                    tt$long.geneNoInt,
-    ##                    tt$geneModule,
-    ##                    tt$gMOneToOne,
-    ##                    echo = TRUE)
-}
+## No longer used
+## wrap.readFitnessEffects <- function(rt, epi, oe, ni, gm, echo = TRUE) {
+##     tt <- allFitnessEffects(rt, epi, oe, ni, gm)
+##     readFitnessEffects(tt, echo = echo)
+##     ## readFitnessEffects(tt$long.rt,
+##     ##                    tt$long.epistasis,
+##     ##                    tt$long.orderEffects,
+##     ##                    tt$long.geneNoInt,
+##     ##                    tt$geneModule,
+##     ##                    tt$gMOneToOne,
+##     ##                    echo = TRUE)
+## }
 
 evalGenotype <- function(genotype, fitnessEffects,
                          verbose = FALSE,
@@ -659,8 +661,8 @@ evalAllGenotypes <- function(fitnessEffects, order = TRUE, max = 256,
     nn <- nrow(fitnessEffects$geneModule) -1  + nrow(fitnessEffects$long.geneNoInt)
     tnn <- tot(nn)
     if(tnn > max) {
-        m <- paste("There are ", tnn, "genotypes.")
-        m <- paste(m, " This is larger than max.")
+        m <- paste("There are", tnn, "genotypes.")
+        m <- paste(m, "This is larger than max.")
         m <- paste(m, "Adjust max and rerun if you want")
         stop(m)
     }
@@ -859,16 +861,22 @@ nr_oncoSimul.internal <- function(rFE,
     } else {
         initMutant <- vector(mode = "integer")
     }
-    if(initSize_species < 10) {
-        warning("initSize_species too small?")
-    }
-    if(initSize_iter < 100) {
-        warning("initSize_iter too small?")
-    }
+    ## these are never user options
+    ## if(initSize_species < 10) {
+    ##     warning("initSize_species too small?")
+    ## }
+    ## if(initSize_iter < 100) {
+    ##     warning("initSize_iter too small?")
+    ## }
 
     if(typeFitness %in% c("bozic1", "bozic2")) {
         thesh <- unlist(lapply(rFE$long.rt, function(x) x$sh))
-        thes <- unlist(lapply(rFE$long.rt, function(x) x$s))
+        ## thes <- unlist(lapply(rFE$long.rt, function(x) x$s))
+        thes <- unlist(c(lapply(rFE$long.rt, function(x) x$s),
+                         lapply(rFE$long.epistasis, function(x) x$s),
+                         lapply(rFE$long.orderEffects, function(x) x$s),
+                         rFE$long.geneNoInt$s))
+        
         if(any(thes > 1 )) {
             m <- paste("You are using a Bozic model with",
                        "the new restriction specification, and you have",
@@ -876,13 +884,16 @@ nr_oncoSimul.internal <- function(rFE,
                        "But that is the same as setting that to 1:",
                        "we obviously cannot allow negative death rates,",
                        "nor problems derived from multiplying odd or even",
-                       "numbers of negative numbers.")
+                       "numbers of negative numbers.",
+                       "You can set those > 1 to 1, but then you will",
+                       "eventually get the simulations to abort when the",
+                       "death rate becomes 0.")
             stop(m)
         }
-        if(any(thesh == -1)) {
+        if(any( (thesh <= -1) & (thesh > -Inf))) {
             m <- paste("You are using a Bozic model with",
                        "the new restriction specification, and you have",
-                       "at least one sh of -1. Maybe you mean -Inf?")
+                       "at least one sh <= -1. Maybe you mean -Inf?")
             warning(m)
         }
         if(any(thes == 1 )) {
