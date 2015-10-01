@@ -2,7 +2,7 @@ Package: OncoSimulR
 Type: Package
 Title: Forward Genetic Simulation of Cancer Progresion with Epistasis 
 Version: 1.99.8
-Date: 2015-10-01
+Date: 2015-30-01
 Author: Ramon Diaz-Uriarte. 
 Maintainer: Ramon Diaz-Uriarte <rdiaz02@gmail.com>
 Description: Functions for forward population genetic simulation in
