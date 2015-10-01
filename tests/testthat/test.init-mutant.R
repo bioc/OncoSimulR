@@ -176,7 +176,7 @@ test_that("initMutant with oncoSimulSample", {
                                        "w" = 0.001,
                                        "x" = 0.0001,
                                        "y" = -0.0001,
-                                       "z" = -0.001),
+                                       "z" = 0.001),
                         geneToModule =
                             c("Root" = "Root",
                               "M" = "m",
