@@ -184,7 +184,7 @@ test_that("initMutant with oncoSimulSample", {
                               "D" = "d") )
     ossI <- oncoSimulSample(4, 
                         o3init, model = "Exp",
-                        mu = 5e-5, finalTime = 500,
+                        mu = 5e-5, finalTime = 5000,
                         detectionDrivers = 2,
                         onlyCancer = TRUE,
                         initSize = 10,
