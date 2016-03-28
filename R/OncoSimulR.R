@@ -29,7 +29,7 @@ oncoSimulSample <- function(Nindiv,
                                     if(length(fp$drv)) {
                                         nd <- (2: round(0.75 * length(fp$drv)))
                                     } else {
-                                        nd <- 0
+                                        nd <- 9e6 
                                     }
                                 } else {
                                     nd <- (2 : round(0.75 * max(fp)))
@@ -69,6 +69,12 @@ oncoSimulSample <- function(Nindiv,
     ## leaving detectionSize and detectionDrivers as they are, produces
     ## the equivalente of uniform sampling. For last, fix a single number
 
+    ## detectionDrivers when there are none: had we left it at 0, then
+    ## when there are no drivers we would stop at the first sampling
+    ## period.
+    
+    if(Nindiv < 1)
+        stop("Nindiv must be >= 1")
     if(keepPhylog)
         warning(paste("oncoSimulSample does not return the phylogeny",
                       "for now, so there is little point in storing it."))
@@ -277,7 +283,7 @@ samplePop <- function(x, timeSample = "last", typeSample = "whole",
 oncoSimulPop <- function(Nindiv,
                          fp,
                          model = "Exp",
-                         numPassengers = 30,
+                         numPassengers = 0,
                          mu = 1e-6,
                          detectionSize = 1e8,
                          detectionDrivers = 4,
@@ -308,6 +314,9 @@ oncoSimulPop <- function(Nindiv,
                          mc.cores = detectCores(),
                          seed = "auto") {
 
+    if(Nindiv < 1)
+        stop("Nindiv must be >= 1")
+    
     if(.Platform$OS.type == "windows") {
         if(mc.cores != 1)
             message("You are running Windows. Setting mc.cores = 1")
@@ -354,7 +363,7 @@ oncoSimulPop <- function(Nindiv,
 
 oncoSimulIndiv <- function(fp,
                            model = "Exp",
-                           numPassengers = 30,
+                           numPassengers = 0,
                            mu = 1e-6,
                            detectionSize = 1e8,
                            detectionDrivers = 4,
@@ -393,6 +402,14 @@ oncoSimulIndiv <- function(fp,
                           "McFL" = "mcfarlandlog",
                           stop("No valid value for model")
                           )
+    if(initSize < 1)
+        stop("initSize < 1")
+    
+    if( (K < 1) && (model %in% c("McFL", "McFarlandLog") )) {
+        stop("Using McFarland's model: K cannot be < 1")
+    }       ##  if ( !(model %in% c("McFL", "McFarlandLog") )) {
+            ## K <- 1 ## K is ONLY used for McFarland; set it to 1, to avoid
+            ##        ## C++ blowing.
 
     if(typeFitness == "exp") {
         death <- 1
@@ -417,7 +434,7 @@ oncoSimulIndiv <- function(fp,
             stop("Unknown model")
     }
 
-    if(mu < 0) {
+    if(any(mu < 0)) {
         stop("mutation rate (mu) is negative")
     }
     ## We do not test for equality to 0. That might be a weird but
@@ -502,6 +519,12 @@ oncoSimulIndiv <- function(fp,
                   silent = !verbosity)
         objClass <- "oncosimul"
     } else {
+        if(numPassengers != 0)
+            warning(paste("Specifying numPassengers has no effect",
+                          " when using fitnessEffects objects. ",
+                          " The fitnessEffects objects are much more ",
+                          "flexible and you can use, for example,",
+                          "the noIntGenes component for passengers."))
         if(is.null(seed)) {## Passing a null creates a random seed
             ## We use a double, to be able to pass in range > 2^16.
             ## Do not use 0, as that is our way of signaling to C++ to
@@ -1541,41 +1564,41 @@ oncoSimul.internal <- function(poset, ## restrict.table,
     rtC <- convertRestrictTable(restrict.table)
 
     return(c(
-        BNB_Algo5(rtC,
-        numDrivers,
-        numGenes,
-        typeCBN,
-        birth, 
-        s, 
-        death,
-        mu,
-        initSize,
-        sampleEvery,
-        detectionSize,
-        finalTime,
-        initSize_species,
-        initSize_iter,
-        seed,
-        verbosity,
-        speciesFS,
-        ratioForce,
-        typeFitness,
-        max.memory,
-        as.integer(mutationPropGrowth),
-        initMutant,
-        max.wall.time,
-        keepEvery,
-        alpha,
-        sh,
-        K,
-        # endTimeEvery,
-        detectionDrivers,
-        onlyCancer,
-        errorHitWallTime,
-        max.num.tries,
-        errorHitMaxTries,
-        minDetectDrvCloneSz,
-        extraTime
+        BNB_Algo5(restrictTable = rtC,
+        numDrivers = numDrivers,
+        numGenes = numGenes,
+        typeCBN_ = typeCBN,
+        birthRate = birth,
+        s = s, 
+        death = death,
+        mu = mu,
+        initSize = initSize,
+        sampleEvery = sampleEvery,
+        detectionSize = detectionSize,
+        finalTime = finalTime,
+        initSp = initSize_species,
+        initIt = initSize_iter,
+        seed = seed,
+        verbosity = verbosity,
+        speciesFS = speciesFS,
+        ratioForce = ratioForce,
+        typeFitness_= typeFitness,
+        maxram = max.memory,
+        mutationPropGrowth = as.integer(mutationPropGrowth),
+        initMutant = initMutant,
+        maxWallTime = max.wall.time,
+        keepEvery = keepEvery,
+        alpha = alpha,
+        sh = sh,
+        K = K,
+        # end = TimeEvery# , 
+        detectionDrivers = detectionDrivers,
+        onlyCancer = onlyCancer,
+        errorHitWallTime = errorHitWallTime,
+        maxNumTries = max.num.tries,
+        errorHitMaxTries = errorHitMaxTries,
+        minDetectDrvCloneSz = minDetectDrvCloneSz,
+        extraTime = extraTime
     ),
              NumDrivers = numDrivers
              ))

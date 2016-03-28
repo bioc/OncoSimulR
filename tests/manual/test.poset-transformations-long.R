@@ -1,3 +1,8 @@
+### Identical to the one in tests, except we set numSimul and numTests to 100
+
+
+## library(OncoSimulR); library(testthat)
+
 ## A set of tests to verify transformations between graph formats are
 ## OK. Recall that restrictionTable acts like a "sink": nothing is
 ## transformed from a restctiionTable to anything else.
@@ -16,9 +21,8 @@
 ## all the code for new simulations is based upon going from adjmat to rT.
 ## verify that.
 
-cat(paste("\n Starting oposet-transformations tests", date(), "\n"))
-
 RNGkind("Mersenne-Twister")
+
 
 test_that("posetToGraph stop in incorrect entry type", {
     expect_error(OncoSimulR:::posetToGraph(1:5, letters[1:5]),
@@ -188,7 +192,7 @@ test_that("poset to rT, with some nodes missing, nodes exchanged",{
 
 
 
-numTests <- 40 ## in long, we use 100
+numTests <- 100
 
 createAndConvert <- function(rangeNodes = 4:30,
                              rangeParents = 2:5,
@@ -244,7 +248,7 @@ createAndConvert <- function(rangeNodes = 4:30,
 
 masterTestCall <- function(rangeNodes = 4:30,
                            rangeParents = 2:5,
-                           verbose = FALSE) {
+                           verbose = TRUE) {
 
     out <- createAndConvert(rangeNodes = rangeNodes,
                            rangeParents = rangeParents,
@@ -279,7 +283,7 @@ tmp <- replicate(numTests, masterTestCall() )
 
 
 ## verify the simulator does generate correct adjacency matrices
-numSimul <- 50  ## in long, we use a 100
+numSimul <- 100
 
 checkAdjMatOGraph <- function(rangeNodes = 4:30,
                               rangeParents = 2:5,
@@ -782,4 +786,3 @@ tmp <- replicate(numSimul, checkAdjMatOGraph(rangeNodes = 2:50,
 ## stopifnot(length(resT) == numTests)
 ## stopifnot(all(resT))
 
-cat(paste("\n Ending oposet-transformations tests", date(), "\n"))

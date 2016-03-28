@@ -19,7 +19,7 @@
   al., 2012.
 }
 \usage{
- oncoSimulIndiv(fp, model = "Exp", numPassengers = 30, mu = 1e-6,
+ oncoSimulIndiv(fp, model = "Exp", numPassengers = 0, mu = 1e-6,
                 detectionSize = 1e8, detectionDrivers = 4,
                 sampleEvery = ifelse(model \%in\% c("Bozic", "Exp"), 1,
                              0.025),
@@ -39,7 +39,7 @@
                 initMutant = NULL,
                 seed = NULL)
 
-oncoSimulPop(Nindiv, fp, model = "Exp", numPassengers = 30, mu = 1e-6,
+oncoSimulPop(Nindiv, fp, model = "Exp", numPassengers = 0, mu = 1e-6,
                 detectionSize = 1e8, detectionDrivers = 4,
                 sampleEvery = ifelse(model \%in\% c("Bozic", "Exp"), 1,
                              0.025),
@@ -73,7 +73,7 @@ oncoSimulSample(Nindiv,
                                     if(length(fp$drv)) {
                                         nd <- (2: round(0.75 * length(fp$drv)))
                                     } else {
-                                        nd <- 0
+                                        nd <- 9e6
                                     }
                                 } else {
                                     nd <- (2 : round(0.75 * max(fp)))
@@ -119,18 +119,24 @@ oncoSimulSample(Nindiv,
     v.1. Otherwise, a fitnessEffects object (see
     \code{\link{allFitnessEffects}}).
 
-    Other arguments below (s, sh) make sense only if you use a poset, as
-    they are included in the fitnessEffects object.
+    Other arguments below (s, sh, numPassengers) make sense only if you
+    use a poset, as they are included in the fitnessEffects object.
 
 }
+
 \item{model}{
   One of "Bozic", "Exp", "McFarlandLog" (the last one can be abbreviated
-  to "McFL").
+  to "McFL"). The default is "Exp".
 
 }
+
 \item{numPassengers}{
+
+  This has no effect if you use the \code{\link{allFitnessEffects}}
+  specification.
   
-  The number of passenger genes.The total number of genes (drivers plus
+  If you use the specification of v.1., the number of passenger
+  genes. Note that using v.1 the total number of genes (drivers plus
   passengers) must be smaller than 64.
   
   All driver genes should be included in the poset (even if they depend
@@ -140,25 +146,37 @@ oncoSimulSample(Nindiv,
   of passengers).
 
 }
+
 \item{mu}{
   Mutation rate. See also \code{mutationPropGrowth}.
 
 } \item{detectionSize}{ What is the minimal number of cells for cancer
 to be detected.  For \code{oncoSimulSample} this can be a vector.
 
-}
-\item{detectionDrivers}{
-  The minimal number of drivers present in any clone for cancer to be
-  detected. For \code{oncoSimulSample} this can be a vector. The default
-  in this case is a vector of drivers from a uniform between 2 and 0.75
-  the total number of drivers
+} 
+
+\item{detectionDrivers}{ The minimal number of drivers (not modules,
+drivers, whether or not they are from the same module) present in any
+clone for cancer to be detected. For \code{oncoSimulSample} this can be
+a vector.
+
+For \code{oncoSimulSample}, if there are drivers (either because you are
+using a v.1 object or because you are using a fitnessEffects object with
+a \code{drvNames} component ---see \code{\link{allFitnessEffects}}---)
+the default is a vector of drivers from a uniform between 2 and 0.75 the
+total number of drivers. If there are no drivers (because you are using
+a fitnessEffects object without a \code{drvNames}, either because you
+specified it explicitly or because all of the genes are in the
+noIntGenes component) the simulations should not stop based on the
+number of drivers (and, thus, the default is set to 9e6).
 
 }
+
 \item{sampleEvery}{
   
   How often the whole population is sampled. This is not the same as the
-  interval between successive samples that keep stored (for that, see
-  \code{keepEvery}).
+  interval between successive samples that are kept or stored (for that,
+  see \code{keepEvery}).
 
   For very fast growing clones, you might need to have a small value
   here to minimize possible numerical problems (such as huge increase in
@@ -393,14 +411,22 @@ to be detected.  For \code{oncoSimulSample} this can be a vector.
   you set it to "auto", then if you are using v.1, the behavior is the
   same as if you set it to NULL (a seed will be generated in R and
   passed to C++) but if you are using v.2, a random seed will be
-  produced in C++. %% using the randutils code from M.E.O'Neill.  If you
-  need reproducibility, either pass a value or set it to NULL (setting
+  produced in C++. %% using the randutils code from M.E.O'Neill.
+  If you   need reproducibility, either pass a value or set it to NULL (setting
   it to NULL will make the C++ seed reproducible if you use the same
   seed in R via \code{set.seed}). However, even using the same value of
   \code{seed} is unlikely to give the exact same results between
   platforms and compilers.  Moreover, note that the defaults for
   \code{seed} are not the same in \code{oncoSimulIndiv},
-  \code{oncoSimulPop} and \code{oncoSimulSample}. }
+  \code{oncoSimulPop} and \code{oncoSimulSample}.
+
+  When using oncoSimulPop, if you want reproducibility, you might want
+  to, in addition to setting \code{seed = NULL}, also do
+  \code{RNGkind("L'Ecuyer-CMRG")} as we use
+  \code{\link[parallel]{mclapply}}; look at the vignette of
+  \pkg{parallel}.
+
+}
 
 
 
@@ -440,8 +466,8 @@ to be detected.  For \code{oncoSimulSample} this can be a vector.
 
 
 
-    \code{GenotyesWDistinctOrderEff} provides the information about
-    order effects that is missing from \code{Genotyoes}. When there are
+    \code{GenotypesWDistinctOrderEff} provides the information about
+    order effects that is missing from \code{Genotypes}. When there are
     order effects, the \code{Genotypes} matrix can contain genotypes
     that are not distinguishable. Suppose there are two genes, the first
     and the second. In the \code{Genotype} output you can get two
@@ -449,10 +475,18 @@ to be detected.  For \code{oncoSimulSample} this can be a vector.
     correspond to the two possible orders (first gene mutated first, or
     first gene mutated after the
     second). \code{GenotypesWDistinctOrderEff} disambiguates this. The
-    same is done by \code{GenotypeLabels}; this is easier to decode for
+    same is done by \code{GenotypesLabels}; this is easier to decode for
     a human (a string of gene labels) but a little bit harder to parse
-    automatically. 
+    automatically.  Note that when you use the default print method for
+    this object, you get, among others, a two-column display with the
+    \code{GenotypeLabels} information. When order matters, a genotype
+    shown as ``x > y _ z'' means that a mutation in ``x'' happened
+    before a mutation in ``y''; there is also a mutation in ``z'' (which
+    could have happened before or after either of ``x'' or ``y''), but
+    ``z'' is a gene for which order does not matter. When order does not
+    matter, a comma "," separates the identifiers of mutated genes.
 
+    
   
 
 }
@@ -616,7 +650,7 @@ to be detected.  For \code{oncoSimulSample} this can be a vector.
 data(examplePosets)
 p701 <- examplePosets[["p701"]]
 
-## Bozic Model
+## Exp Model
 
 b1 <- oncoSimulIndiv(p701)
 summary(b1)

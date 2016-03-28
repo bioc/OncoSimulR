@@ -1,3 +1,87 @@
+cat(paste("\n Starting all fitness at", date()))
+RNGkind("Mersenne-Twister") ## we have some examples below with random
+## genotype generation. We leave the default. We use L'Ecuyer when using
+## mclapply and that file could run before this one
+
+
+test_that("Root name in module table or not", {
+    expect_silent(fee <- allFitnessEffects(epistasis = c("A" = 0.3,
+                                           "B" = 0.5),
+                             geneToModule = c("Root" = "Root",
+                                              "A" = "a1, a2",
+                                              "B" = "b1")))
+    expect_silent(fee2 <- allFitnessEffects(epistasis = c("A" = 0.3,
+                                           "B" = 0.5),
+                             geneToModule = c("A" = "a1, a2",
+                                              "B" = "b1")))
+    expect_identical(evalAllGenotypes(fee), evalAllGenotypes(fee2))
+    expect_error(allFitnessEffects(epistasis = c("A" = 0.3,
+                                                 "B" = 0.5),
+                                   geneToModule = c(
+                                       "Root" = "0",
+                                       "A" = "a1, a2",
+                                       "B" = "b1")),
+                 "The name Root is in the module table, but is not of Root",
+                 fixed = TRUE)
+    expect_error(allFitnessEffects(epistasis = c("A" = 0.3,
+                                                 "B" = 0.5),
+                                   geneToModule = c(
+                                       "A" = "a1, a2",
+                                       "B" = "b1",
+                                       "Root" = "0")),
+                 "If the name Root is in the module table, it must be the first",
+                 fixed = TRUE)
+     expect_error(allFitnessEffects(epistasis = c("A" = 0.3,
+                                                 "B" = 0.5),
+                                   geneToModule = c(
+                                       "A" = "a1, a2",
+                                       "B" = "b1",
+                                       "Root" = "Root")),
+                 "If Root is in the module table, it must be the first",
+                 fixed = TRUE)
+    expect_error(allFitnessEffects(epistasis = c("A" = 0.3,
+                                                 "B" = 0.5),
+                                   geneToModule = c(
+                                       "0" = "Root",
+                                       "A" = "a1, a2",
+                                       "B" = "b1")),
+                 "Some values in geneToModule not present in any of",
+                 fixed = TRUE)
+    expect_error(allFitnessEffects(epistasis = c("A" = 0.3,
+                                                 "B" = 0.5),
+                                   geneToModule = c(
+                                       "B" = "Root",
+                                       "A" = "a1, a2",
+                                       "Root" = "b1")),
+                 "If the name Root is in the module table, it must be the first",
+                 fixed = TRUE)
+    expect_error(allFitnessEffects(epistasis = c("A" = 0.3,
+                                                 "B" = 0.5),
+                                   geneToModule = c(
+                                       "Root" = "b1",
+                                       "A" = "a1, a2",
+                                       "B" = "Root")),
+                 "If Root is in the module table, it must be the first",
+                 fixed = TRUE)
+       expect_error(allFitnessEffects(epistasis = c("A" = 0.3,
+                                                 "B" = 0.5),
+                                   geneToModule = c(
+                                       "A" = "a1, a2",
+                                       "Root" = "b1",
+                                       "B" = "Root")),
+                 "If Root is in the module table, it must be the first",
+                 fixed = TRUE)
+       expect_error(allFitnessEffects(epistasis = c("A" = 0.3,
+                                                 "B" = 0.5),
+                                   geneToModule = c(
+                                       "B" = "Root",
+                                       "A" = "a1, a2",
+                                       "B" = "c1")),
+                 "Root is in the module table, but with a different name",
+                 fixed = TRUE)
+})
+
+
 
 
 test_that("Bauer example: correct number of fitness classes", {
@@ -923,10 +1007,10 @@ test_that("gene by itself and in module", {
 
 test_that("a silly epistasis example", {
     ## make sure we exercise the nrow(df) == 0L
-    expect_output(sv <- allFitnessEffects(
+    expect_silent(sv <- allFitnessEffects(
                      orderEffects = c("A > B" = 0.1),
-                     epistasis = c("A" = 1)), "")
-    expect_output(evalAllGenotypes(sv), "")
+                     epistasis = c("A" = 1)))
+    expect_output(print(evalAllGenotypes(sv)), "Genotype")
 })
 
 test_that("can run without keeping input", {
@@ -935,7 +1019,7 @@ test_that("can run without keeping input", {
                  s = 0.1,
                  sh = -0.9,
                  typeDep = "MN")
-    expect_output(cbn1 <- allFitnessEffects(cs, keepInput = FALSE), "")
+    expect_silent(cbn1 <- allFitnessEffects(cs, keepInput = FALSE))
 })
 
 
@@ -971,9 +1055,6 @@ test_that("We limit number of genotypes in eval", {
 
 ## check breaks if in restriction and no interactions
 
-
-
-
 ## Nope, this is not inconsistent
 
 test_that("Bozic limit cases handled consistently", {
@@ -984,8 +1065,8 @@ test_that("Bozic limit cases handled consistently", {
         sh = 0.1,
         typeDep = "OR"),
         noIntGenes = c("E" = 0.85, "F" = 1))
-    expect_output(evalAllGenotypes(sv, order = FALSE, addwt = TRUE,
-                                   model = "Bozic"), ## this works
+    expect_output(print(evalAllGenotypes(sv, order = FALSE, addwt = TRUE,
+                                   model = "Bozic")), ## this works
                   "Death_rate", fixed = TRUE, all = FALSE)
     expect_error(oncoSimulIndiv(sv, model = "Bozic"),
                  "You are using a Bozic model with the new restriction specification, and you have at least one s > 1."
@@ -993,8 +1074,8 @@ test_that("Bozic limit cases handled consistently", {
     sv2 <- allFitnessEffects(epistasis = c("-A : B" = 1.5,
                                            "A : -B" = 1.5,
                                            "A:B" = 2.5))
-    expect_output(evalAllGenotypes(sv2, order = FALSE, addwt = TRUE,
-                                   model = "Bozic"), ## this works
+    expect_output(print(evalAllGenotypes(sv2, order = FALSE, addwt = TRUE,
+                                   model = "Bozic")), ## this works
                   "Death_rate", fixed = TRUE, all = FALSE)
     expect_error(oncoSimulIndiv(sv2, model = "Bozic"),
                  "You are using a Bozic model with the new restriction specification, and you have at least one s > 1."
@@ -1002,8 +1083,8 @@ test_that("Bozic limit cases handled consistently", {
     sv3 <- allFitnessEffects(epistasis = c("-A : B" = 0.1,
                                            "A : -B" = 1,
                                            "A:B" = 0.1))
-    expect_output(evalAllGenotypes(sv3, order = FALSE, addwt = TRUE,
-                                   model = "Bozic"), ## this works
+    expect_output(print(evalAllGenotypes(sv3, order = FALSE, addwt = TRUE,
+                                   model = "Bozic")), ## this works
                   "Death_rate", fixed = TRUE, all = FALSE)
     expect_warning(oncoSimulIndiv(sv3, model = "Bozic"),
                    "You are using a Bozic model with the new restriction specification, and you have at least one s of 1."
@@ -1013,8 +1094,8 @@ test_that("Bozic limit cases handled consistently", {
                                            "A:B" = 0.5),
                              orderEffects = c("G > H" = 1.1),
                              noIntGenes = c("E" = 0.85, "F" = 1.35))
-    expect_output(evalAllGenotypes(sv4, order = FALSE, addwt = TRUE,
-                                   model = "Bozic"), ## this works
+    expect_output(print(evalAllGenotypes(sv4, order = FALSE, addwt = TRUE,
+                                   model = "Bozic")), ## this works
                   "Death_rate", fixed = TRUE, all = FALSE)
     expect_error(oncoSimulIndiv(sv4, model = "Bozic"),
                  "You are using a Bozic model with the new restriction specification, and you have at least one s > 1."
@@ -1024,8 +1105,8 @@ test_that("Bozic limit cases handled consistently", {
                                            "A:B" = 1),
                              orderEffects = c("G > H" = 1),
                              noIntGenes = c("E" = 0.85, "F" = 1))
-    expect_output(evalAllGenotypes(sv5, order = FALSE, addwt = TRUE,
-                                   model = "Bozic"), ## this works
+    expect_output(print(evalAllGenotypes(sv5, order = FALSE, addwt = TRUE,
+                                   model = "Bozic")), ## this works
                   "Death_rate", fixed = TRUE, all = FALSE)
     expect_warning(oncoSimulIndiv(sv5, model = "Bozic"),
                    "You are using a Bozic model with the new restriction specification, and you have at least one s of 1."
@@ -1035,8 +1116,8 @@ test_that("Bozic limit cases handled consistently", {
                                            "A:B" = 0.5),
                              orderEffects = c("G > H" = 1),
                              noIntGenes = c("E" = 0.85, "F" = 1.35))
-    expect_output(evalAllGenotypes(sv4c, order = FALSE, addwt = TRUE,
-                                   model = "Bozic"), ## this works
+    expect_output(print(evalAllGenotypes(sv4c, order = FALSE, addwt = TRUE,
+                                   model = "Bozic")), ## this works
                   "Death_rate", fixed = TRUE, all = FALSE)
     expect_error(oncoSimulIndiv(sv4c, model = "Bozic"),
                  "You are using a Bozic model with the new restriction specification, and you have at least one s > 1."
@@ -1046,8 +1127,8 @@ test_that("Bozic limit cases handled consistently", {
                                            "A:B" = 0.5),
                              orderEffects = c("G > H" = 1.1),
                              noIntGenes = c("E" = 0.85, "F" = 0.35))
-    expect_output(evalAllGenotypes(sv4d, order = FALSE, addwt = TRUE,
-                                   model = "Bozic"), ## this works
+    expect_output(print(evalAllGenotypes(sv4d, order = FALSE, addwt = TRUE,
+                                   model = "Bozic")), ## this works
                   "Death_rate", fixed = TRUE, all = FALSE)
     expect_error(oncoSimulIndiv(sv4d, model = "Bozic"),
                  "You are using a Bozic model with the new restriction specification, and you have at least one s > 1."
@@ -1057,8 +1138,8 @@ test_that("Bozic limit cases handled consistently", {
                                            "A:B" = 0.5),
                              orderEffects = c("G > H" = 0.1),
                              noIntGenes = c("E" = 0.85, "F" = 1.3))
-    expect_output(evalAllGenotypes(sv4d, order = FALSE, addwt = TRUE,
-                                   model = "Bozic"), ## this works
+    expect_output(print(evalAllGenotypes(sv4d, order = FALSE, addwt = TRUE,
+                                   model = "Bozic")), ## this works
                   "Death_rate", fixed = TRUE, all = FALSE)
     expect_error(oncoSimulIndiv(sv4d, model = "Bozic"),
                  "You are using a Bozic model with the new restriction specification, and you have at least one s > 1."
@@ -1070,8 +1151,8 @@ test_that("Bozic limit cases handled consistently", {
         sh = -1,
         typeDep = "OR"),
         noIntGenes = c("E" = 0.85, "F" = .1))
-    expect_output(evalAllGenotypes(svff, order = FALSE, addwt = TRUE,
-                                   model = "Bozic"), ## this works
+    expect_output(print(evalAllGenotypes(svff, order = FALSE, addwt = TRUE,
+                                   model = "Bozic")), ## this works
                   "Death_rate", fixed = TRUE, all = FALSE)
     expect_warning(oncoSimulIndiv(svff, model = "Bozic"),
                  "You are using a Bozic model with the new restriction specification, and you have at least one sh <= -1."
@@ -1083,8 +1164,8 @@ test_that("Bozic limit cases handled consistently", {
         sh = -1.5,
         typeDep = "OR"),
         noIntGenes = c("E" = 0.85, "F" = .1))
-    expect_output(evalAllGenotypes(svff2, order = FALSE, addwt = TRUE,
-                                   model = "Bozic"), ## this works
+    expect_output(print(evalAllGenotypes(svff2, order = FALSE, addwt = TRUE,
+                                   model = "Bozic")), ## this works
                   "Death_rate", fixed = TRUE, all = FALSE)
     expect_warning(oncoSimulIndiv(svff2, model = "Bozic"),
                  "You are using a Bozic model with the new restriction specification, and you have at least one sh <= -1."
@@ -1096,10 +1177,41 @@ test_that("Bozic limit cases handled consistently", {
         sh = -Inf,
         typeDep = "OR"),
         noIntGenes = c("E" = 0.85, "F" = .1))
-    expect_output(evalAllGenotypes(svff3, order = FALSE, addwt = TRUE,
-                                   model = "Bozic"), ## this works
+    expect_output(print(evalAllGenotypes(svff3, order = FALSE, addwt = TRUE,
+                                   model = "Bozic")), ## this works
                   "Death_rate", fixed = TRUE, all = FALSE)
-    expect_output(oncoSimulIndiv(svff3, model = "Bozic"),
+    expect_output(print(oncoSimulIndiv(svff3, model = "Bozic")),
                  "Individual OncoSimul trajectory with call"
                  ) 
 })
+
+
+
+
+test_that("No epistasis, modules", {
+    sa <- 0.01
+    sb <- 0.02
+    sc <- 0.03
+    fnme <- allFitnessEffects(epistasis = c("A" = sa,
+                                            "B" = sb,
+                                            "C" = sc),
+                              geneToModule = c("A" = "a1, a2",
+                                               "B" = "b1",
+                                               "C" = "c1, c2"))
+    ea <- evalAllGenotypes(fnme, order = FALSE, addwt = TRUE)
+    expect_identical(ea[ea$Genotype == "a1, a2", "Fitness"], 1 + sa)
+    expect_identical(ea[ea$Genotype == "a1, b1", "Fitness"],
+    (1 + sa) * (1 + sb))
+    expect_identical(ea[ea$Genotype == "a2, c1", "Fitness"],
+    (1 + sa) * (1 + sc))
+    expect_identical(ea[ea$Genotype == "b1, c2", "Fitness"],
+    (1 + sb) * (1 + sc))
+    expect_identical(ea[ea$Genotype == "a1, a2, c1", "Fitness"],
+    (1 + sa) * (1 + sc))
+    expect_identical(ea[ea$Genotype == "a1, a2, b1, c1", "Fitness"],
+    (1 + sa) * (1 + sb) * (1 + sc))
+    expect_identical(ea[ea$Genotype == "a2, b1, c1", "Fitness"],
+    (1 + sa) * (1 + sb) * (1 + sc))
+})
+
+cat(paste("\n Ending all-fitness at", date()))
