@@ -500,10 +500,23 @@ allFitnessEffects <- function(rT = NULL,
     }
     
     if(!is.null(noIntGenes)) {
+        if(inherits(noIntGenes, "character")) {
+            wm <- paste("noIntGenes is a character vector.",
+                        "This is probably not what you want, and will",
+                        "likely result in an error downstream.",
+                        "You can get messages like",
+                        " 'not compatible with requested type', and others.",
+                        "We are stopping.")
+            stop(wm)
+        }
+            
         mg <- max(geneModule[, "GeneNumID"])
         gnum <- seq_along(noIntGenes) + mg
         if(!is.null(names(noIntGenes))) {
             ng <- names(noIntGenes)
+            if( grepl(",", ng, fixed = TRUE) || grepl(">", ng, fixed = TRUE)
+                || grepl(":", ng, fixed = TRUE))
+                stop("The name of some noIntGenes contain a ',' or a '>' or a ':'")
             if(any(ng %in% geneModule[, "Gene"] ))
                 stop("A gene in noIntGenes also present in the other terms")
         } else {
@@ -527,7 +540,18 @@ allFitnessEffects <- function(rT = NULL,
     }
 
     if(!is.null(drvNames)) {
-        drv <- getGeneIDNum(geneModule, geneNoInt, drvNames)
+        drv <- unique(getGeneIDNum(geneModule, geneNoInt, drvNames))
+        ## drivers should never be in the geneNoInt; Why!!!???
+        ## Catch the problem. This is an overkill,
+        ## so since we catch the issue, we could leave the geneNoInt. But
+        ## that should not be there in this call.
+        ## if(any(drvNames %in% geneNoInt$Gene)) {
+        ##     stop(paste("At least one gene in drvNames is a geneNoInt gene.",
+        ##                "That is not allowed.",
+        ##                "If that gene is a driver, pass it as gene in the epistasis",
+        ##                "component."))
+        ## }
+        ## drv <- getGeneIDNum(geneModule, NULL, drvNames)
     } else {
         drv <- geneModule$GeneNumID[-1]
     }
