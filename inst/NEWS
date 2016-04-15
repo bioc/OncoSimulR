@@ -1,3 +1,6 @@
+Changes in version 2.0.1 (2016-04-15):
+	- Adapt to changes in testthat 1.0
+
 Changes in version 1.99.9 (2015-10-08):
 	- Fixed NEWS file.
 	- Removed empty file.
