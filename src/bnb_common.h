@@ -19,29 +19,30 @@
 #define _BNB_COMMON_H_
 
 #include<Rcpp.h>
-#include"debug_common.h"
-#include "new_restrict.h" // for the TypeModel enum
+#include "common_classes.h"
+#include "debug_common.h"
+// #include "new_restrict.h" // for the TypeModel enum
 
-// Simple custom exception for exceptions that lead to re-runs.
-class rerunExcept: public std::runtime_error {
-public:
-  rerunExcept(const std::string &s) :
-    std::runtime_error(s) {}
-};
+// // Simple custom exception for exceptions that lead to re-runs.
+// class rerunExcept: public std::runtime_error {
+// public:
+//   rerunExcept(const std::string &s) :
+//     std::runtime_error(s) {}
+// };
 
 
-struct spParamsP {
-  double popSize;
-  double birth;
-  double death;
-  double W;
-  double R;
-  double mutation; 
-  double timeLastUpdate;
-  std::multimap<double, int>::iterator pv;
-  double absfitness; //convenient for Beerenwinkel
-  int numMutablePos; //for mutator if need update of mutation
-};
+// struct spParamsP {
+//   double popSize;
+//   double birth;
+//   double death;
+//   double W;
+//   double R;
+//   double mutation; 
+//   double timeLastUpdate;
+//   std::multimap<double, int>::iterator pv;
+//   double absfitness; //convenient for Beerenwinkel
+//   int numMutablePos; //for mutator if need update of mutation
+// };
 
 
 inline void W_f_st(spParamsP& spP){
@@ -58,7 +59,14 @@ inline void R_f_st(spParamsP& spP) {
 inline double pE_f_st(double& pM, const spParamsP& spP){
   double pE = (spP.death * (1.0 - pM ) )/(spP.W - spP.death - spP.birth * pM );
   if( !std::isfinite(pE) ) {
-    throw std::range_error("pE.f: pE not finite");
+    DP2(spP.death);  DP2(spP.birth); DP2(pM); DP2(spP.W);
+    DP2(spP.mutation);
+    std::string error_message = R"(pE.f: pE not finite.
+      This is expected to happen when mutationPropGrowth = TRUE 
+      and you have have an initMutant with death >> birth,
+      as that inevitably leads to net birth rate of 0
+      and mutation rate of 0)";
+    throw std::range_error(error_message);
   }
   return pE;
 }
@@ -97,7 +105,8 @@ double ti_nextTime_tmax_2_st(const spParamsP& spP,
 			     int& ti_e3);
 
 double Algo2_st(const spParamsP& spP,
-		const double& ti);
+		const double& ti,
+		const int& mutationPropGrowth);
 
 double Algo3_st(const spParamsP& spP, const double& t);
 
@@ -106,11 +115,11 @@ void precissionLoss();
 void init_tmpP(spParamsP& tmpParam);
 
 double returnMFE(double& e1,
-		 const double& K,
+		 // const double& K,
 		 const std::string& typeFitness);
 
 double returnMFE(double& e1,
-		 const double& K,
+		 // const double& K,
 		 const TypeModel typeModel);
 
 void computeMcFarlandError(double& e1,

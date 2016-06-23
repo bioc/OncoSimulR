@@ -60,7 +60,7 @@
                               show = "drivers", 
                               type = ifelse(show == "genotypes",
                                             "stacked", "line"),
-                              col = c(8, "orange", 6:1),
+                              col = "auto",
                               log = ifelse(type == "line", "y", ""),
                               ltyClone = 2:6,
                               lwdClone = 0.9,
@@ -239,7 +239,7 @@
     
   }
   \item{thinData.min}{
-    Any time point for which a clone has a population size < thinData.min
+    Any time point for which a clone has a population size > thinData.min
     will be kept (i.e., will not be removed from) in the data.
     
     
