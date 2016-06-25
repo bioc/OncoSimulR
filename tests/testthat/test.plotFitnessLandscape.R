@@ -1,6 +1,10 @@
 test_that("Exercise plotting", {
     r1 <- rfitness(4)
     expect_silent(plot(r1))
+    expect_silent(plot(r1, log = TRUE))
+    expect_silent(plot(r1, log = TRUE, use_ggrepel = TRUE))
+    expect_silent(plot(r1, log = TRUE, show_labels = FALSE))
+    
     
     ## Specify fitness in a matrix, and plot it
     m5 <- cbind(c(0, 1, 0, 1), c(0, 0, 1, 1), c(1, 2, 3, 5.5))
@@ -12,12 +16,52 @@ test_that("Exercise plotting", {
                             noIntGenes = c("e" = 0.1))
     
     expect_silent(plot(evalAllGenotypes(fe, order = FALSE)))
-    
+
     ## same as
     expect_silent(plotFitnessLandscape(evalAllGenotypes(fe, order = FALSE)))
-    
+    ## more ggrepel
+    expect_silent(plot(evalAllGenotypes(fe, order = FALSE), use_ggrepel = TRUE))
 })
 
+
+test_that("to_FitnessMatrix stops as it should", {
+    x1 <- data.frame(a = 1:2, b = 1:2)
+    expect_error(OncoSimulR:::to_Fitness_Matrix(x1, 2000),
+                 "We cannot guess what you are passing",
+                 fixed = TRUE)
+    x2 <- list(a = 12, b = 13)
+    expect_error(OncoSimulR:::to_Fitness_Matrix(x2, 2000),
+                 "We cannot guess what you are passing",
+                 fixed = TRUE)
+})
+
+
+
+test_that("to_FitnessMatrix can deal with df", {
+    m4 <- data.frame(G = c("A, B", "A", "WT", "B"),
+                     Fitness = c(3, 2, 1, 4))
+    expect_message(OncoSimulR:::to_Fitness_Matrix(m4, 2000),
+                   "Column names of object", fixed = TRUE)
+    m5 <- data.frame(G = c("A, B", "B"),
+                     Fitness = c(3, 2))
+    expect_message(OncoSimulR:::to_Fitness_Matrix(m5, 2000),
+                   "Column names of object", fixed = TRUE)
+    x1 <- data.frame(a = c("A, B"), Fitness = 2)
+    expect_message(OncoSimulR:::to_Fitness_Matrix(x1, 2000),
+                   "Column names of object", fixed = TRUE)
+    x2 <- data.frame(a = c("A, B", "B"), Fitness = c(2, 3))
+    expect_message(OncoSimulR:::to_Fitness_Matrix(x2, 2000),
+                   "Column names of object", fixed = TRUE)
+    x3 <- data.frame(a = c("A, B", "C"), Fitness = c(2, 3))
+    expect_message(OncoSimulR:::to_Fitness_Matrix(x3, 2000),
+                   "Column names of object", fixed = TRUE)
+    ## Now, the user code
+    expect_message(plotFitnessLandscape(x1))
+    expect_message(plotFitnessLandscape(x2))
+    expect_message(plotFitnessLandscape(x3))
+    expect_message(plotFitnessLandscape(m5))
+    expect_message(plotFitnessLandscape(m4))
+})
 
 
 test_that("internal peak valley functions", {
