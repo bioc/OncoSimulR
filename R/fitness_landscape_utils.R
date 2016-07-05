@@ -25,8 +25,6 @@ plotFitnessLandscape <- function(x, show_labels = TRUE,
                                  ...) {
 
     ## FIXME future:
-    
-   
 
     ## - Allow passing order effects. Change "allGenotypes_to_matrix"
     ##   below? Probably not, as we cannot put order effects as a
@@ -54,107 +52,8 @@ plotFitnessLandscape <- function(x, show_labels = TRUE,
     ## get the string representation, etc. And this is for use
     ## with OncoSimul.
 
-
     tfm <- to_Fitness_Matrix(x, max_num_genotypes = max_num_genotypes)
 
-    ## if( (inherits(x, "genotype_fitness_matrix")) ||
-    ##     ( (is.matrix(x) || is.data.frame(x)) && (ncol(x) > 2) ) ) {
-    ##     ## Why this? We go back and forth twice. We need both things. We
-    ##     ## could construct the afe below by appropriately pasting the
-    ##     ## columns names
-    ##     afe <- evalAllGenotypes(allFitnessEffects(
-    ##         epistasis = from_genotype_fitness(x)),
-    ##         order = FALSE, addwt = TRUE, max = max_num_genotypes)
-    ##     ## Might not be needed with the proper gfm object (so gmf <- x)
-    ##     ## but is needed if arbitrary matrices.
-    ##     gfm <- allGenotypes_to_matrix(afe) 
-    ## } else if(inherits(x, "fitnessEffects")) {
-    ##     if(!is.null(x$orderEffects) )
-    ##         stop("We cannot yet deal with order effects")
-    ##     afe <- evalAllGenotypes(x,
-    ##                             order = FALSE,
-    ##                             addwt = TRUE, max = max_num_genotypes)
-    ##     gfm <- allGenotypes_to_matrix(afe)
-    ## } else if( (inherits(x, "evalAllGenotypes")) ||
-    ##            (inherits(x, "evalAllGenotypesMut"))) {
-    ##     if(any(grepl(">", x[, 1], fixed = TRUE)))
-    ##         stop("We cannot deal with order effects yet.")
-    ##     x <- x[, c(1, 2)]
-    ##     if(x[1, "Genotype"] != "WT") {
-    ##         ## Yes, because we expect this present below
-    ##         x <- rbind(data.frame(Genotype = "WT",
-    ##                               Fitness = 1,
-    ##                               stringsAsFactors = FALSE),
-    ##                    x)
-    ##     }
-    ##     afe <- x
-    ##     ## in case we pass an evalAllgenotypesfitandmut
-    ##     gfm <- allGenotypes_to_matrix(afe)
-    ## } else if(is.data.frame(x)) {
-    ##     ## Assume a two-column data frame of genotypes as character
-    ##     ## vectors and fitness
-    ##     if(colnames(x)[2] != "Fitness")
-    ##         stop("We cannot guess what you are passing here") 
-    ##     afe <- evalAllGenotypes(allFitnessEffects(genotFitness = x),
-    ##                             order = FALSE, addwt = TRUE,
-    ##                             max = max_num_genotypes)
-    ##     gfm <- allGenotypes_to_matrix(afe)
-    ## } else {
-    ##    stop("We cannot guess what you are passing here") 
-    ## }
-   
-
-    
-    ## if(inherits(x, "genotype_fitness_matrix")) {
-    ##     ## Why this? We go back and forth twice. We need both things. We
-    ##     ## could construct the afe below by appropriately pasting the
-    ##     ## columns names
-    ##     afe <- evalAllGenotypes(allFitnessEffects(
-    ##         epistasis = from_genotype_fitness(x)),
-    ##         order = FALSE, addwt = TRUE, max = 2000)
-    ##     gfm <- allGenotypes_to_matrix(afe) ## should not be needed? gfm <- x
-    ## } else if(inherits(x, "fitnessEffects")) {
-    ##     if(!is.null(x$orderEffects) )
-    ##         stop("We cannot yet deal with order effects")
-    ##     afe <- evalAllGenotypes(x,
-    ##                             order = FALSE,
-    ##                             addwt = TRUE, max = 2000)
-    ##     gfm <- allGenotypes_to_matrix(x)
-    ## } else {
-    ##     lc <- ncol(x)
-    ##     ## detect an appropriately formatted matrix
-    ##     if( (is.data.frame(x) || is.matrix(x)) ) {
-    ##         if(ncol(x) > 2) {
-    ##             ## We cannot be sure all genotypes are present
-    ##             ## but that is not our business?
-    ##             ## colnames(x)[lc] <- "Fitness"
-    ##             ## So this must be a matrix
-    ##             afe <- evalAllGenotypes(allFitnessEffects(
-    ##                 epistasis = from_genotype_fitness(x)),
-    ##                 order = FALSE, addwt = TRUE, max = 2000)
-    ##             gfm <- allGenotypes_to_matrix(afe)
-    ##         } else {
-    ##             ## This must be a data frame
-    ##             if(!is.data.frame(x))
-    ##                 stop("How are you passing a matrix here?")
-    ##             if(colnames(x)[lc] != "Fitness")
-    ##                 stop("We cannot guess what you are passing here")
-    ##             ## We are passed an allFitnessEffects output
-    ##             ## Will be simpler later as we will know immediately
-    ##             if(x[1, "Genotype"] != "WT") {
-    ##                 ## Yes, because we expect this present below
-    ##                 x <- rbind(data.frame(Genotype = "WT",
-    ##                                       Fitness = 1,
-    ##                                       stringsAsFactors = FALSE),
-    ##                            x)
-    ##             }
-    ##             x <- afe
-    ##             gfm <- allGenotypes_to_matrix(afe)
-    ##         }
-    ##     } else {
-    ##         stop("This is not allowed input")
-    ##     }
-    ## }
 
     mutated <- rowSums(tfm$gfm[, -ncol(tfm$gfm)])
     gaj <- genot_to_adj_mat(tfm$gfm)
@@ -181,7 +80,8 @@ plotFitnessLandscape <- function(x, show_labels = TRUE,
                      x_to = mutated[vv[, 2]],
                      y_to = tfm$afe$Fitness[vv[, 2]],
                      Change = factor(ifelse(cl == 0, "Neutral",
-                                     ifelse(cl > 0, "Gain", "Loss"))))
+                                     ifelse(cl > 0, "Gain", "Loss")),
+                                     levels = c("Gain", "Loss", "Neutral")))
     ## From http://stackoverflow.com/a/17257422
     number_ticks <- function(n) {function(limits) pretty(limits, n)}
     
@@ -194,7 +94,11 @@ plotFitnessLandscape <- function(x, show_labels = TRUE,
                            xend = x_to, yend = y_to,
                            colour = Change,
                            lty = Change)) + scale_color_manual("Change",
-                                                               values = col)
+                                                               values = col,
+                                                               drop = FALSE) +
+        scale_linetype_manual("Change", values = lty, drop = FALSE) +
+        scale_x_continuous(breaks = seq(0, max(mutated), 1))
+    
     if(log) {
         p <- p + scale_y_log10(breaks = number_ticks(5))
     } else {

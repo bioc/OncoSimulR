@@ -228,7 +228,8 @@ test_that("exercising oncoSimulSample, old format", {
                                                     sampleEvery = 0.03,
                                                     detectionSize = 1e3,
                                                     finalTime = 3,
-                                                    onlyCancer = FALSE),
+                                                    onlyCancer = FALSE,
+                                                    showProgress = TRUE),
                              "Successfully sampled 2 individuals")
               expect_message(ofs <- oncoSimulSample(2, p701,
                                                     sampleEvery = 0.03,
@@ -263,7 +264,8 @@ test_that("exercising oncoSimulSample, new format", {
                                          detectionSize = 1e3,
                                          finalTime = 3,
                                          onlyCancer = FALSE,
-                                         typeSample = "single"),
+                                         typeSample = "single",
+                                         showProgress = TRUE),
                   "Successfully sampled 2 individuals")
               expect_equal(dim(pS$popSample), c(2, 7))
               expect_equal(dim(pSs$popSample), c(2, 7))
@@ -615,10 +617,230 @@ expect_identical(samplePop(s1, timeSample = "last", typeSample = "whole",
 })
 
 
+
+
+
+
+
+
+
+test_that("exercising oncoSimulIndiv, new format, extra time", {
+    pancr <- allFitnessEffects(data.frame(parent = c("Root", rep("KRAS", 4), "SMAD4", "CDNK2A", 
+                                                     "TP53", "TP53", "MLL3"),
+                                          child = c("KRAS","SMAD4", "CDNK2A", 
+                                                    "TP53", "MLL3",
+                                                    rep("PXDN", 3), rep("TGFBR2", 2)),
+                                          s = 0.05,
+                                          sh = -0.3,
+                                          typeDep = "MN"))
+    expect_silent(
+        pSs <- oncoSimulIndiv(pancr,
+                              sampleEvery = 0.03,
+                              detectionSize = 1e3,
+                              finalTime = 6,
+                              extraTime = 5,
+                              onlyCancer = FALSE))
+    expect_output(print(pSs), "Individual OncoSimul trajectory",
+                  fixed = TRUE)
+})
+
+
+
+test_that("exercising oncoSimulIndiv, hit max ram", {
+    p1 <- allFitnessEffects(noIntGenes = rep(.1, 10))
+    expect_output(pSs <- oncoSimulIndiv(p1,
+                                        initSize = 1e4,
+                                        sampleEvery = 3,
+                                        detectionSize = 1e5,
+                                        finalTime = 1000,
+                                        extraTime = 5,
+                                        onlyCancer = FALSE,
+                                        max.memory = .01),
+                  "Return outNS object > maxram",
+                  fixed = TRUE)
+})
+
+
+
+test_that("exercising oncoSimulIndiv, verbosity", {
+    ii <- rep(.1, 20)
+    names(ii) <- letters[1:20]
+    p1 <- allFitnessEffects(noIntGenes = ii)
+    expect_output(pSs <- oncoSimulIndiv(p1,
+                                        initMutant = "a",
+                                        model = "McFL",
+                                        initSize = 1e2,
+                                        sampleEvery = 1,
+                                        detectionSize = 1e10,
+                                        finalTime = 2000,
+                                        extraTime = 5,
+                                        verbosity = 6,
+                                        onlyCancer = FALSE),
+                  "Looping through", fixed = TRUE)
+    ## This is too much: can take a minute.
+    ## ii <- rep(.01, 1000)
+    ## names(ii) <- paste0("n", 1:1000)
+    ## p1 <- allFitnessEffects(noIntGenes = ii)
+    ## expect_output(pSs <- oncoSimulIndiv(p1,
+    ##                                     initMutant = "n1",
+    ##                                     model = "Exp",
+    ##                                     initSize = 1e6,
+    ##                                     sampleEvery = 2,
+    ##                                     detectionSize = 1e7,
+    ##                                     finalTime = 50,
+    ##                                     extraTime = 5,
+    ##                                     verbosity = 2,
+    ##                                     onlyCancer = FALSE),
+    ##               "Looping through", fixed = TRUE)
+})
+
+
+
+test_that("oncoSimulIndiv miscell C++ warnings", {
+    pancri <- allFitnessEffects(
+        data.frame(parent = c("Root", rep("KRAS", 4), "SMAD4", "CDNK2A", 
+                              "TP53", "TP53", "MLL3"),
+                   child = c("KRAS","SMAD4", "CDNK2A", 
+                             "TP53", "MLL3",
+                             rep("PXDN", 3), rep("TGFBR2", 2)),
+                   s = Inf,
+                   sh = Inf,
+                   typeDep = "MN"))
+    ## This are messages in R, not R warnings, as from Rcpp::Rcout
+    expect_output(oncoSimulIndiv(pancri,
+                                  initSize = 1,
+                                  keepEvery = 5,
+                                  onlyCancer = FALSE),
+                   "at least one sh is positive infinite",
+                   fixed = TRUE)
+    expect_output(oncoSimulIndiv(pancri,
+                                  initSize = 1,
+                                  keepEvery = 5,
+                                  onlyCancer = FALSE),
+                   "at least one s is infinite",
+                   fixed = TRUE)
+})
+
+
+test_that("using old poset format: Bozic and sh < 0", {
+              data(examplePosets)
+              p701 <- examplePosets[["p701"]]
+              expect_silent(oncoSimulIndiv(p701, sh = -0.3,
+                                           model = "Bozic",
+                                           onlyCancer = FALSE))
+})
+
+
+test_that("using old poset format, extra time", {
+              data(examplePosets)
+              p701 <- examplePosets[["p701"]]
+              expect_silent(oncoSimulIndiv(p701, sh = 0.3,
+                                           initSize = 1000,
+                                           detectionSize = 1100,
+                                           model = "McFL",
+                                           finalTime = 1000,
+                                           extraTime = 3.17,
+                                           onlyCancer = FALSE))
+              expect_silent(oncoSimulIndiv(p701, sh = 0,
+                                           model = "Exp",
+                                           initSize = 1e4,
+                                           detectionSize = 1e6,
+                                           extraTime = 10,
+                                           onlyCancer = FALSE))
+              expect_silent(oncoSimulIndiv(p701, sh = -0.01,
+                                           model = "Bozic",
+                                           initSize = 1e4,
+                                           detectionSize = 1e6,
+                                           extraTime = 10,
+                                           onlyCancer = FALSE))
+})
+
+test_that("using old poset format, no initMutant", {
+    data(examplePosets)
+    p701 <- examplePosets[["p701"]]
+    expect_warning(p1 <- oncoSimulIndiv(p701, sh = 0.3,
+                                        initSize = 1000,
+                                        detectionSize = 1100,
+                                        model = "Exp",
+                                        finalTime = 1000,
+                                        extraTime = 3.17,
+                                        initMutant = 2,
+                                        onlyCancer = FALSE),
+                   "With the old poset format you can no longer use initMutant",
+                   fixed = TRUE)
+    expect_warning(p1 <- oncoSimulIndiv(p701, sh = 0.3,
+                                        initSize = 1000,
+                                        detectionSize = 1100,
+                                        model = "Exp",
+                                        finalTime = 1000,
+                                        extraTime = 3.17,
+                                        initMutant = c(2, 5),
+                                        onlyCancer = FALSE),
+                   "With the old poset format you can no longer use initMutant",
+                   fixed = TRUE)
+})
+
+test_that("using old poset format, exercise verbosity", {
+    data(examplePosets)
+    p701 <- examplePosets[["p701"]]
+    expect_output(oncoSimulIndiv(p701, sh = 0,
+                                 initSize = 10000,
+                                 detectionSize = 30000,
+                                 model = "Exp",
+                                 finalTime = 2000,
+                                 extraTime = 3.17,
+                                 verbosity = 10,
+                                 onlyCancer = FALSE),
+                  "Looping", fixed = TRUE)
+})
+
+
+
+test_that("exercising verbosity, new format", {
+    gg <- rep(0.1, 20)
+    names(gg) <- letters[1:20]
+    ii <- allFitnessEffects(noIntGenes = gg)
+    expect_output(
+        pSs <- oncoSimulIndiv(ii,
+                              sampleEvery = .5,
+                              initSize = 1e4,
+                              detectionSize = 5e5,
+                              finalTime = 1000,
+                              extraTime = 5,
+                              keepEvery = 50,
+                              verbosity = 10,
+                              onlyCancer = FALSE),
+        "Looping",
+        fixed = TRUE)
+})
+
+
+
+test_that("old format: at most 64 genes", {
+    p1 <- cbind(1L, 2L)
+    expect_error(p1 <- oncoSimulIndiv(p1,
+                        numPassengers = 66,
+                        sh = 0,
+                        initSize = 1e5,
+                        sampleEvery = 0.02,
+                        detectionSize = 1e9,
+                        model = "Exp",
+                        finalTime = 2000,
+                        extraTime = 3.17,
+                        onlyCancer = FALSE,
+                        seed = NULL),
+                 "Largest possible number of genes",
+                 fixed = TRUE)
+})
+
+
+
+
+
+
+
+
 cat(paste("\n Ending oncoSimulIndiv-miscell tests", date(), "\n"))
-
-
-
 
 
 

@@ -10,6 +10,7 @@ opts_knit$set(concordance = TRUE)
 options(width = 68)
 ##opts_knit$set(stop_on_error = 2L)
 @ 
+
 \usepackage{amsmath}
 %% \usepackage[authoryear,round,sort]{natbib}
 \usepackage{threeparttable}
@@ -107,7 +108,6 @@ BiocStyle::latex()
 %% @
 
 \tableofcontents
-
 
 \section{Introduction}\label{intro}
 
@@ -259,15 +259,14 @@ Using this package will often involve the following steps:
       results, for example. In addition, decreasing the death rate will
       more easily lead to numerical problems as shown in section
       \ref{ex-0-death}}.
-  \item Specify the other parameters of the simulation (when to stop,
-    mutation rate, etc).
+  \item Specify other parameters of the simulation. In particular, decide
+    when to stop the simulation, mutation rates, etc.
   \end{itemize}
   Of course, at least for initial playing around, you can use the defaults.
   
-\item Sample from the simulated data: section \ref{sample}, and do
-  something with those simulated data (e.g., fit an OT model to
-  them). What you do with the data, however, is outside the scope of this
-  package.   
+\item Sample from the simulated data and do something with those simulated
+  data (e.g., fit an OT model to them). What you do with the data,
+  however, is outside the scope of this package.
 \end{enumerate}
 
 
@@ -300,7 +299,7 @@ Following the above we will run two examples. First a model with a few
 genes and \textbf{epistasis}:
 
 <<fig.width=6.5, fig.height=10>>=
-## 1. Fitness effects: here we specify a 
+## 1. Fitness effects: here we specify an 
 ##    epistatic model with modules.
 sa <- 0.1
 sb <- -0.2
@@ -320,17 +319,30 @@ sv2 <- allFitnessEffects(epistasis = c("-A : B" = sb,
 evalAllGenotypes(sv2, order = FALSE, addwt = TRUE)
 
 ## 2. Simulate the data. Here we use the "McFL" model and set explicitly
-##    parameters for mutation rate, final and initial sizes, etc.
+##    parameters for mutation rate, initial size and size of the population
+##    that will end the simulations, etc
+
 RNGkind("Mersenne-Twister")
 set.seed(983)
 ep1 <- oncoSimulIndiv(sv2, model = "McFL",
-                     mu = 5e-6,
-                     sampleEvery = 0.02,
-                     keepEvery = 0.5,
-                     initSize = 2000,
-                     finalTime = 3000,
-                     onlyCancer = FALSE)
+                      mu = 5e-6,
+                      sampleEvery = 0.02,
+                      keepEvery = 0.5,
+                      initSize = 2000,
+                      finalTime = 3000,
+                      onlyCancer = FALSE)
 @ 
+
+
+
+% set.seed(9)
+% ep1 <- oncoSimulIndiv(sv2, model = "McFL",
+%                      mu = 5e-6,
+%                      sampleEvery = 0.02,
+%                      keepEvery = 0.5,
+%                      initSize = 2000,
+%                      finalTime = 3000,
+%                      onlyCancer = FALSE)
 
 %% <<fig.width=6.5, fig.height=10>>=
 %%  ## 1. Fitness effects: here we specify a 
@@ -377,6 +389,7 @@ plot(ep1, show = "drivers", xlim = c(0, 1500),
 plot(ep1, show = "genotypes", ylim = c(0, 4500), legend.ncols = 4,
      xlim = c(0, 1500),
      thinData = TRUE, thinData.keep = 0.5)
+
 @ 
 
 
@@ -405,6 +418,7 @@ plot(pancr)
 @ 
 <<fig.width=6.5, fig.height=10>>=
 ## 2. Simulate from it. 
+
 set.seed(4) ## Fix the seed, so we can repeat it
 ep2 <- oncoSimulIndiv(pancr, model = "McFL",
                      mu = 1e-6,
@@ -414,16 +428,28 @@ ep2 <- oncoSimulIndiv(pancr, model = "McFL",
                      finalTime = 10000,
                      onlyCancer = FALSE)
 @ 
+
+% set.seed(6) ## Fix the seed, so we can repeat it
+% ep2 <- oncoSimulIndiv(pancr, model = "McFL",
+%                      mu = 1e-6,
+%                      sampleEvery = 0.02,
+%                      keepEvery = 1,
+%                      initSize = 2000,
+%                      finalTime = 10000,
+%                      onlyCancer = FALSE)
 <<iep2x2,fig.width=6.5, fig.height=9>>=
 ## 3. What genotypes and drivers we get? And play with limits
 ##    to show only parts of the data. We also thin them.
+
 par(mfrow = c(2, 1))
 par(cex = 0.7)
 plot(ep2, show = "genotypes", xlim = c(1000, 8000), 
      ylim = c(0, 2400),
      thinData = TRUE, thinData.keep = 0.5)
 plot(ep2, show = "drivers", addtot = TRUE,
+     xlim = c(400, 1800),
      thinData = TRUE, thinData.keep = 0.2)
+
 @ 
 
 
@@ -3241,8 +3267,386 @@ plot(rv2, expandModules = TRUE,   autofit = TRUE)
 %%       scale_char = 8)
 
 
+
+
 \clearpage
-\section{Running and plotting the simulations}\label{simul}
+\section{Running and plotting the simulations: starting, ending, and
+  examples}\label{simul}
+
+\subsection{Starting and ending}
+\label{sec:starting-ending}
+
+
+After you have decided the specifics of the fitness effects and the model,
+you need to decide:
+
+\begin{itemize}
+\item Where will you start your simulation from. This involves deciding
+  the initial population size (argument \texttt{initSize}) and, possibly,
+  the genotype of the initial population; the later is covered in section
+  \qref{initmut}.
+
+\item When will you stop it: how long to run it, and whether or not to
+  require simulations to reach cancer (under some definition of what it
+  means to reach cancer). This is covered in \qref{endsimul}.
+\end{itemize}
+
+
+\subsection{Can I start the simulation from a specific mutant?}\label{initmut}
+
+You bet. In v.1 you can only give the initial mutant as one with a single
+mutated gene. In version 2, however, you can specify the genotype for the
+initial mutant with the same flexibility as in
+\Rfunction{evalGenotype}. Here we show a couple of examples (we use the
+representation of the parent-child relationships ---discussed in section
+\ref{phylog}--- of the clones so that you can see which clones appear, and
+from which).
+
+%% o3init <- allFitnessEffects(orderEffects = c(
+%%                             "M > D > F" = 0.99,
+%%                             "D > M > F" = 0.2,
+%%                             "D > M"     = 0.1,
+%%                             "M > D"     = 0.9),
+%%                         noIntGenes = c("u" = 0.01, 
+%%                                        "v" = 0.01,
+%%                                        "w" = 0.001,
+%%                                        "x" = 0.0001,
+%%                                        "y" = -0.0001,
+%%                                        "z" = -0.001),
+%%                         geneToModule =
+%%                             c("Root" = "Root",
+%%                               "M" = "m",
+%%                               "F" = "f",
+%%                               "D" = "d") )
+<<fig.height=6>>=
+
+o3init <- allFitnessEffects(orderEffects = c(
+                            "M > D > F" = 0.99,
+                            "D > M > F" = 0.2,
+                            "D > M"     = 0.1,
+                            "M > D"     = 0.9),
+                        noIntGenes = c("u" = 0.01, 
+                                       "v" = 0.01,
+                                       "w" = 0.001,
+                                       "x" = 0.0001,
+                                       "y" = -0.0001,
+                                       "z" = -0.001),
+                        geneToModule =
+                            c("M" = "m",
+                              "F" = "f",
+                              "D" = "d") )
+
+oneI <- oncoSimulIndiv(o3init, model = "McFL",
+                       mu = 5e-5, finalTime = 500,
+                       detectionDrivers = 3,
+                       onlyCancer = FALSE,
+                       initSize = 1000,
+                       keepPhylog = TRUE,
+                       initMutant = c("m > u > d")
+                       )
+plotClonePhylog(oneI, N = 0)
+
+
+## 
+## Note we also disable the stopping stochastically
+## as a function of size to allow the pop to grow
+## large and generate may different clones.
+ospI <- oncoSimulPop(4, 
+                    o3init, model = "Exp",
+                    mu = 5e-5, finalTime = 500,
+                    detectionDrivers = 3,
+                    onlyCancer = TRUE,
+                    initSize = 10,
+                    keepPhylog = TRUE,
+                    initMutant = c("d > m > z"),
+                    mc.cores = 2
+                    )
+
+op <- par(mar = rep(0, 4), mfrow = c(2, 2))
+plotClonePhylog(ospI[[1]])
+plotClonePhylog(ospI[[2]])
+plotClonePhylog(ospI[[3]])
+plotClonePhylog(ospI[[4]])
+par(op)
+
+
+ossI <- oncoSimulSample(4, 
+                        o3init, model = "Exp",
+                        mu = 5e-5, finalTime = 500,
+                        detectionDrivers = 2,
+                        onlyCancer = TRUE,
+                        initSize = 10,
+                        initMutant = c("z > d"),
+                        thresholdWhole = 1 ## check presence of initMutant
+                    )
+
+## No phylogeny is kept with oncoSimulSample, but look at the 
+## OcurringDrivers and the sample
+
+ossI$popSample
+ossI$popSummary[, "OccurringDrivers", drop = FALSE]
+
+
+@ 
+
+\subsection{Ending the simulations}
+\label{endsimul}
+
+OncoSimulR provides very flexible ways to decide when to stop a
+simulation. Here we focus on a single simulation; see further options with
+multiple simulations in \qref{sample}.
+
+
+\begin{description}
+\item[\texttt{onlyCancer = TRUE}] A simulation will be repeated until any
+  one of the ``reach cancer'' conditions is met, if this happens before
+  the simulation reaches \texttt{finalTime}\footnote{Of course, the
+    ``reach cancer'' idea and the \texttt{onlyCancer} argument are generic
+    names; this could have been labeled ``reach whatever interests
+    me''.}. These conditions are:
+  \begin{itemize}
+  \item Total population size becomes larger than \texttt{detectionSize}.
+  \item The number of drivers in any one genotype or clone becomes equal
+    to, or larger than, \texttt{detectionDrivers}; note that this allows you
+    to stop the simulation as soon as a \textbf{specific genotype} is
+    found, by using exactly and only the genes that make that genotype as
+    the drivers.
+  \item The tumor is detected according to a stochastic detection
+    mechanism, where the probability of ``detecting the tumor'' increases
+    with population size; this is explained below (\qref{detectprob}) and
+    is controlled by argument \texttt{detectionProb}.
+  \end{itemize}
+  
+  As we exit as soon as any of the exiting conditions is reached, if you
+  only care about one condition, set the other to \texttt{NA}.
+
+\item[\texttt{onlyCancer = FALSE}] A simulation will run only once, and
+  will exit as soon as any of the above conditions are met or as soon as
+  the total population size becomes zero or we reach \texttt{finalTime}.
+\end{description}
+
+
+As an example of \texttt{onlyCancer = TRUE}, focusing on the first two
+mechanisms, suppose you give \texttt{detectionSize = 1e4} and
+\texttt{detectionDrivers = 3} (and you have \texttt{detectionProb =
+  NA}). A simulation will exit as soon as it reaches a total population
+size of $1e4$ or any clone has four drivers, whichever comes first (if any
+of these happen before \texttt{finalTime}).
+
+In the \texttt{onlyCancer = TRUE} case, what happens if we reach
+\texttt{finalTime} (or the population size becomes zero) before any of the
+``reach cancer'' conditions have been fulfilled?  The simulation will be
+repeated again, within the following limits:
+
+\begin{itemize}
+\item \texttt{max.wall.time}: the total wall time we allow an individual
+  simulation to run;
+\item \texttt{max.num.tries}: the maximum number of times we allow a
+  simulation to be repeated to reach cancer;
+\item \texttt{max.wall.time.total} and \texttt{max.num.tries.total},
+  similar to the above but over a set of simulations in function
+  \Rfunction{oncoSimulSample}.
+\end{itemize}
+
+
+Incidentally, we keep track of the number of attempts used (the component
+\texttt{other$attemptsUsed$}) before we reach cancer, so you can estimate
+(as from a negative binomial sampling) the probability of reaching your
+desired end point under different scenarios.
+
+
+The \texttt{onlyCancer = FALSE} case might be what you want to do when you
+examine general population genetics scenarios without focusing on possible
+sampling issues. To do this, set \texttt{finalTime} to the value you want
+and set \texttt{onlyCancer = FALSE}; in addition, set
+\texttt{detectionProb} to ``NA'' and \texttt{detectionDrivers} and
+\texttt{detectionSize} to ``NA'' or to huge numbers\footnote{Setting
+  \texttt{detectionDrivers} and \texttt{detectionSize} to ``NA'' is in
+  fact equivalent to setting them to the largest possible numbers for
+  these variables: $2^32 -1$ and $\infty$, respectively.}. In this
+scenario you simply collect the simulation output at the end of the run,
+regardless of what happened with the population (it became extinct, it did
+not reach a large size, it did not accumulate drivers, etc).
+
+
+
+
+
+% The simplest procedure is to run the simulation for a fixed number of time
+% periods (as specified by argument \texttt{finalTime}) or until the
+% population goes extinct, whichever happens first. This might be what you
+% want to do when you examine general population genetics scenarios without
+% focusing on possible sampling issues. To do this, set \texttt{finalTime}
+% to the value you want and set \texttt{onlyCancer = FALSE}; in addition,
+% set \texttt{detectionProb} to ``NA'' and \texttt{detectionDrivers} and
+% \texttt{detectionSize} to ``NA'' or to impossibly large
+% numbers\footnote{Setting \texttt{detectionDrivers} and
+%   \texttt{detectionSize} to ``NA'' is in fact equivalent to setting them
+%   to the largest possible numbers: $2^32 -1$ and $\infty$,
+%   respectively.}. This scenario is the \texttt{onlyCancer = FALSE} because
+% you simply collect the simulation output, regardless of what happened with
+% the population (it became extinct, it did not reach a large size, it did
+% not accumulate drivers, etc).
+
+
+% If we set \texttt{onlyCancer = TRUE}. Here a simulation will be repeated
+% until the first one of the ``reach cancer'' conditions is met\footnote{Of
+%   course, the ``reach cancer'' idea and the \texttt{onlyCancer} argument
+%   are generic names; this could have been labeled ``reach cardiovascular
+%   disease'' or ``reach whatever interests me''.}. These conditions are:
+
+% \begin{itemize}
+
+% \item total population size, given by \texttt{detectionSize};
+
+% \item number of drivers in any one genotype or clone, given by
+%   \texttt{detectionDrivers}; note that this allows you to stop the
+%   simulation as soon as a \textbf{specific genotype} is found, by using
+%   exactly and only the genes that make that genotype as the drivers;
+
+% \item a stochastic detection mechanism, where ``detecting cancer'' is a
+%   function of total population size, with arguments as given in
+%   \texttt{detectionProb}; this is explained below: \qref{detectprob}.
+
+% \end{itemize}
+
+
+
+% The simplest procedure is to run the simulation for a fixed number of time
+% periods (as specified by argument \texttt{finalTime}) or until the
+% population goes extinct, whichever happens first. This might be what you
+% want to do when you examine general population genetics scenarios without
+% focusing on possible sampling issues. To do this, set \texttt{finalTime}
+% to the value you want and set \texttt{onlyCancer = FALSE}; in addition,
+% set \texttt{detectionProb} to ``NA'' and \texttt{detectionDrivers} and
+% \texttt{detectionSize} to ``NA'' or to impossibly large
+% numbers\footnote{Setting \texttt{detectionDrivers} and
+%   \texttt{detectionSize} to ``NA'' is in fact equivalent to setting them
+%   to the largest possible numbers: $2^32 -1$ and $\infty$,
+%   respectively.}. This scenario is the \texttt{onlyCancer = FALSE} because
+% you simply collect the simulation output, regardless of what happened with
+% the population (it became extinct, it did not reach a large size, it did
+% not accumulate drivers, etc).
+
+
+
+\subsubsection{Stochastic detection mechanism: \texttt{detectionProb}}
+\label{detectprob}
+
+This is the process that is controlled by the argument
+\texttt{detectionProb}. Here the probability of tumor detection increases
+with the total population size. This is biologically a reasonable
+assumption: the larger the tumor, the more likely it is it will be
+detected.
+
+% The third mechanism for stopping the simulation assumes that the
+% probability of tumor detection increases with the total population
+% size. This is biologically a reasonable assumption: the larger the tumor,
+% the more likely it is it will be detected. 
+
+At regularly spaced times during the simulation, we compute the
+probability of detection as a function of size and determine (by comparing
+against a random uniform number) if the simulation should finish. For
+simplicity, and to make sure the probability is bounded between 0 and 1,
+we use the function
+
+% \begin{equation}
+%   \label{eq:2}
+%   P(N) = 1 - e^{-cPDetect (N - PDBaseline)}, N > PDBaseline \\
+%   P(N) = 0, N \leq PDBaseline
+% \end{equation}
+
+
+\begin{equation}
+  \label{eq:2}
+  P(N) = 
+  \begin{cases}
+  1 - e^{ -cPDetect (N - PDBaseline)} & \text{if } N > PDBaseline \\
+  0 & \text{if } N \leq PDBaseline
+  \end{cases}
+\end{equation}
+
+where $P(N)$ is the probability that a tumor with a population size $N$
+will be detected, and $cPDetect$ controls the increase in $P(N)$ with
+population size; with $PDBaseline$ we both control the minimal population
+size at which this mechanism stats operating (because we will rarely want
+detection unless there is some meaningful increase of population size over
+\texttt{initSize}) and we model the increase in $P(N)$ as a function of
+differences with respect to $PDBaseline$.
+
+
+The $P(N)$ refers to the probability of detection at each one of the
+occasions when we assess the probability of exiting. When, or how often,
+do we do that? When we assess probability of exiting is controlled by
+\texttt{checkSizePEvery}, which will often be much larger than
+\texttt{sampleEvery}\footnote{We assess probability of exiting at every
+  sampling time, as given by \texttt{sampleEvery}, that is the smallest
+  possible sampling time that is separated from the previous time of
+  assessment by at least \texttt{checkSizePEvery}. In other words, the
+  interval between successive assessments will be the smallest multiple
+  integer of \texttt{sampleEvery} that is larger than
+  \texttt{checkSizePEvery}. For example, suppose \texttt{sampleEvery = 2}
+  and \texttt{checkSizePEvery = 3}: we will assess exiting at times
+  $4, 8, 12, 16, \ldots$. If \texttt{sampleEvery = 3} and
+  \texttt{checkSizePEvery = 3}: we will assess exiting at times
+  $6, 12, 18, \ldots$.} Biologically, a way to think of
+\texttt{checkSizePEvery} is ``time between doctor appointments''.
+
+
+Finally, you can specify $cPDetect$ directly (you will need to set
+\texttt{n2} and \texttt{p2} to NA). However, it might be more intuitive to
+specify the pair \texttt{n2}, \texttt{p2}, such that $P(n2) = p2$ (and
+from that pair we solve for the value of \texttt{cPDetect}).
+
+
+You can get a feeling for the effects of these arguments by playing with
+the following code, that we do not execute here for the sake of
+speed. Here no mutation has any effect, but there is a non-zero
+probability of exiting as soon as the total population size becomes larger
+than the initial population size. So, eventually, all simulations will
+exit and, as we are using the McFarland model, population size will vary
+slightly around the initial population size.
+
+
+<<eval=FALSE>>=
+gi2 <- rep(0, 5)
+names(gi2) <- letters[1:5]
+oi2 <- allFitnessEffects(noIntGenes = gi2)
+s5 <- oncoSimulPop(200,
+                   oi2,
+                   model = "McFL",
+                   initSize = 1000,
+                   detectionProb = c(p2 = 0.1, 
+                                     n2 = 2000, 
+                                     PDBaseline = 1000,
+                                     checkSizePEvery = 2), 
+                   detectionSize = NA,
+                   finalTime = NA, 
+                   keepEvery = NA,
+                   detectionDrivers = NA)
+s5
+hist(unlist(lapply(s5, function(x) x$FinalTime)))
+@ 
+
+As you decrease \texttt{checkSizePEvery} the distribution of ``FinalTime''
+will resemble more and more an exponential distribution.
+
+
+In this vignette, there are some further examples of using this mechanism
+in \qref{s-cbn1} and \qref{mcf5070}, with the default arguments.
+
+
+% Further comments about this procedure and its relation to sampling
+% multiple simulations are provided in \qref{popss-osp}.
+
+
+% \subsubsection{So does \texttt{finalTime} matter much?}
+% \label{meaning-final-time}
+
+% This should be implicit from the above discussion, but \texttt{finalTime}
+% basically works as a stopping point for the simulations and, in contrast
+% to the other mechanisms for exiting a simulation, has rarely any special
+% meaning. 
 
 
 \subsection{Bauer's example again}\label{bauer2}
@@ -3262,7 +3666,11 @@ bauer <- data.frame(parent = c("Root", rep("p", K)),
 fbauer <- allFitnessEffects(bauer, drvNames = "p")
 set.seed(1)
 ## Use fairly large mutation rate
-b1 <- oncoSimulIndiv(fbauer, mu = 5e-5, initSize = 1000) 
+b1 <- oncoSimulIndiv(fbauer, mu = 5e-5, initSize = 1000,
+                     finalTime = NA,
+                     onlyCancer = TRUE,
+                     detectionProb = "default")
+
 @ 
 
 
@@ -3295,7 +3703,7 @@ in section \ref{phylog} could be of help).
 
 <<fig.width=6>>=
 
-set.seed(456)
+set.seed(678)
 nd <- 70  
 np <- 5000 
 s <- 0.1  
@@ -3306,26 +3714,27 @@ mcf1 <- allFitnessEffects(noIntGenes = c(rep(s, nd), rep(spp, np)),
 mcf1s <-  oncoSimulIndiv(mcf1,
                          model = "McFL", 
                          mu = 1e-7,
-                         detectionSize = 1e8, 
-                         detectionDrivers = 100,
+                         detectionProb = "default",
+                         detectionSize = 1e20, 
+                         detectionDrivers = 9999,
                          sampleEvery = 0.02,
-                         keepEvery = 2,
+                         keepEvery = 8,
                          initSize = 2000,
-                         finalTime = 1000,
+                         finalTime = 4000,
                          onlyCancer = FALSE)
 summary(mcf1s)
-@ 
 
+@ 
+%%
+%% set.seed(456)
 <<mcf1sx1,fig.width=6.5, fig.height=10>>=
 par(mfrow  = c(2, 1))
 ## I use thinData to make figures smaller and faster
 plot(mcf1s, addtot = TRUE, lwdClone = 0.9, log = "", 
      thinData = TRUE, thinData.keep = 0.5)
-## I also use here xlim, to focus only on a part of the
-## data (and make it plot faster)
 plot(mcf1s, show = "drivers", type = "stacked",
-     thinData = TRUE, thinData.keep = 0.5,
-     xlim = c(600, 1000), legend.ncols = 2)
+     thinData = TRUE, thinData.keep = 0.3,
+     legend.ncols = 2)
 @ 
 
 
@@ -3431,20 +3840,21 @@ names(examplesFitnessEffects)
 \subsection{Simulation with a conjunction example}\label{s-cbn1}
 
 We will simulate using the simple CBN-like restrictions of
-section \ref{cbn1} with two different models:
+section \ref{cbn1} with two different models. Note also that we combine 
 
 <<>>=
 data(examplesFitnessEffects)
 evalAllGenotypes(examplesFitnessEffects$cbn1, order = FALSE)[1:10, ]
 sm <-  oncoSimulIndiv(examplesFitnessEffects$cbn1,
-                       model = "McFL", 
-                       mu = 5e-7,
-                       detectionSize = 1e8, 
-                       detectionDrivers = 2,
-                       sampleEvery = 0.025,
-                       keepEvery = 5,
-                       initSize = 2000,
-                       onlyCancer = TRUE)
+                      model = "McFL", 
+                      mu = 5e-7,
+                      detectionSize = 1e8, 
+                      detectionDrivers = 2,
+                      detectionProb = "default",
+                      sampleEvery = 0.025,
+                      keepEvery = 5,
+                      initSize = 2000,
+                      onlyCancer = TRUE)
 summary(sm)
 @ 
 
@@ -3470,6 +3880,7 @@ evalAllGenotypes(examplesFitnessEffects$cbn1, order = FALSE,
 sb <-  oncoSimulIndiv(examplesFitnessEffects$cbn1,
                        model = "Bozic", 
                        mu = 5e-6,
+                      detectionProb = "default",
                        detectionSize = 1e8, 
                        detectionDrivers = 4,
                        sampleEvery = 2,
@@ -3800,7 +4211,6 @@ streamgraph(lb1, Genotype, Y, Time, scale = "continuous",
           offset = "zero") %>% sg_legend(show=TRUE, label="Genotype: ")
 @ 
 
-
 %% (Note: the idiomatic way of doing the above with \CRANpkg{tidyr} is using 
 %% \verb= %>% =, the pipe operator. Something like 
 %% \begin{verbatim}
@@ -3815,66 +4225,230 @@ streamgraph(lb1, Genotype, Y, Time, scale = "continuous",
 \section{Sampling multiple simulations}\label{sample}
 
 Often, you will want to simulate multiple runs of the same scenario, and
-do something with them. Conceptually, the first step is running multiple
-simulations and, then, sampling them.
+then obtain the matrix of runs by mutations (a matrix of
+individuals/samples by genes or, equivalently, a vector of "genotypes"),
+and do something with them.  OncoSimulR offers several ways of doing this.
 
-We will use the ``pancreas'' example, above section \ref{pancreas}.
+The key function here is \Rfunction{samplePop}, either called explicitly
+after \Rfunction{oncoSimulPop} (or \Rfunction{oncoSimulIndiv}), or
+implicitly as part of a call to \Rfunction{oncoSimulSample}. With
+\Rfunction{samplePop} you can use \textbf{single cell} or \textbf{whole
+  tumor} sampling (for details see the help of
+\Rfunction{samplePop}). Depending on how the simulations were conducted,
+you might also sample at different times, or as a function of population
+sizes. A major difference between procedures has to do with whether or not
+you want to keep the complete history of the simulations.
+
+\paragraph{You want to keep the complete history of simulations} You will
+simulate using:
+
+\begin{itemize}
+\item \texttt{oncoSimulIndiv} repeatedly (maybe within
+  \Rfunction(mclapply), to parallelize the run).
+\item \texttt{oncoSimulPop}. \texttt{oncoSimulPop} is basically a
+  thin wrapper around \texttt{oncoSimulIndiv} that uses
+  \Rfunction{mclapply}.
+\end{itemize}
+In both cases, you specify the conditions for ending the simulations (as
+explained in \qref{endsimul}).
+
+Then, you will use function \texttt{oncoSimulSample} to obtain the matrix
+of samples by mutations.
+
+  
+\paragraph{You do not want to keep the complete history of the
+  simulations} You will simulate using:
+
+\begin{itemize}
+\item \texttt{oncoSimulIndiv} repeatedly,  with argument \texttt{keepEvery = NA}. 
+\item \texttt{oncoSimulPop}, with argument \texttt{keepEvery = NA}. 
+\end{itemize}
+In both cases you specify the conditions for ending the simulations (as
+explained in \qref{endsimul}).  Then, you will use function
+\texttt{oncoSimulSample}.
+
+\begin{itemize}
+  
+\item \texttt{oncoSimulSample}, specifying the conditions for ending the
+  simulations (as explained in \qref{endsimul}). In this case, you will
+  not use \texttt{oncoSimulSample}, as that is implicitly called by
+  \texttt{oncoSimulSample}.  The output is directly the matrix (and a
+  little bit of summary from each run), and during the simulation it
+  only stores one time point.
+  
+\end{itemize}
+% In this case, you will not use \texttt{oncoSimulSample}, as that is
+% implicitly called by \texttt{oncoSimulSample}.
+  
+
+
+
+Why the difference between the above cases? If you keep the complete
+history, you can take samples at any of the times between the beginning
+and the end of the simulations. If you do not keep the history, you can
+only sample at the time the simulation exited.  Why would you want to use
+the second route? If we are only interested in the final matrix of
+individuals by mutations, keeping the complete history the above is
+wasteful, because we store fully all of the simulations (for example in
+the call to \Rfunction{oncoSimulPop}) and then sample (in the call to
+\Rfunction{samplePop}). Other reasons for choosing one over the other
+might have to do with flexibility (e.g., if you use
+\Rfunction{oncoSimulPop} the arguments for \texttt{detectionSize},
+\texttt{detectionDrivers} must be the same for all simulations but this is
+not the case for \Rfunction{oncoSimulSample}) and parallelized
+execution. See further comments in \qref{diffsample}.
+
+
+
+These are a couple of examples. First we run \texttt{oncoSimulPop}
+to obtain 4 simulations and in the last line we sample from them:
 <<>>=
 
-
-pancrPop <- oncoSimulPop(10, pancr,
+pancrPop <- oncoSimulPop(4, pancr,
                          detectionSize = 1e7,
                          keepEvery = 10,
                          mc.cores = 2)
 
 summary(pancrPop)
+samplePop(pancrPop)
 
 @ 
+  
 
-The above runs the simulation process 10 times, and stores the
-results. We can then sample from them:
+Now a simple multiple call to \texttt{oncoSimulIndiv} wrapped inside
+\Rfunction{mclapply}; this is basically the same we just did above. We set
+the class of the object to allow direct usage of \Rfunction{samplePop}.
 
 <<>>=
-pancrSPop <- samplePop(pancrPop)
-pancrSPop
+library(parallel)
+p2 <- mclapply(1:4, function(x) oncoSimulIndiv(pancr,
+                                               detectionSize = 1e7,
+                                               keepEvery = 10),
+                                               mc.cores = 2)
+class(p2) <- "oncosimulpop"
+samplePop(p2)
 @ 
+  
 
-
-But if we are only interested in the final matrix of populations by
-mutations, the above is wasteful, because we store fully all of the
-simulations (in the call to \Rfunction{oncoSimulPop}) and then sample (in
-the call to \Rfunction{samplePop}). In particular, data from every
-sampling time (as given by \Rcode{sampleEvery}) is preserved. It is in the
-call to \Rfunction{samplePop} when we actually sample the data.
-
-
-An alternative approach is to use the function
-\Rfunction{oncoSimulSample}. The output is directly the matrix (and a
-little bit of summary from each run), and during the simulation it only
-stores one time point. 
-
+Above, we have kept the complete history of the simulations as you can
+check by doing, for instance
 
 <<>>=
+tail(pancrPop[[1]]$pops.by.time)
+@ 
 
-pancrSamp <- oncoSimulSample(10, pancr)
-pancrSamp
+
+If we were not interested in the complete history of simulations we could
+have done instead (note the argument \texttt{keepEvery = NA})
+
+<<>>=
+pancrPopNH <- oncoSimulPop(4, pancr,
+                           detectionSize = 1e7,
+                           keepEvery = NA,
+                           mc.cores = 2)
+
+summary(pancrPopNH)
+samplePop(pancrPopNH)
+@ 
+
+which only keeps the very last sample:
+<<>>=
+pancrPopNH[[1]]$pops.by.time
+@ 
+
+Or we could have used \Rfunction{oncoSimulSample}:
+
+<<>>=
+pancrSamp <- oncoSimulSample(4, pancr)
+pancrSamp$popSamp
 
 @ 
 
+
+Why the above differences? If we are only interested in the final matrix
+of populations by mutations, keeping the complete history the above is
+wasteful, because we store fully all of the simulations (in the call to
+\Rfunction{oncoSimulPop}) and then sample (in the call to
+\Rfunction{samplePop}).
+
+
+% We will use the ``pancreas'' example, above section \ref{pancreas}.
+% <<>>=
+
+% pancrPop <- oncoSimulPop(10, pancr,
+%                          detectionSize = 1e7,
+%                          keepEvery = 10,
+%                          mc.cores = 2)
+
+% summary(pancrPop)
+
+% @ 
+
+% The above runs the simulation process 10 times, and stores the
+% results. We can then sample from them:
+
+% <<>>=
+% pancrSPop <- samplePop(pancrPop)
+% pancrSPop
+% @ 
+
+
+
+% But if we are only interested in the final matrix of populations by
+% mutations, the above is wasteful, because we store fully all of the
+% simulations (in the call to \Rfunction{oncoSimulPop}) and then sample (in
+% the call to \Rfunction{samplePop}). In particular, data from every
+% sampling time (as given by \Rcode{sampleEvery}) is preserved. It is in the
+% call to \Rfunction{samplePop} when we actually sample the data.
+
+
+% An alternative approach is to use the function
+% \Rfunction{oncoSimulSample}. The output is directly the matrix (and a
+% little bit of summary from each run), and during the simulation it only
+% stores one time point. 
+
+
+% <<>>=
+
+% pancrSamp <- oncoSimulSample(10, pancr)
+% pancrSamp
+
+% @ 
+
+% %% FIXME: or oncoSimulPop with keepEvery = NULL. of mclapply of oncoSimulIndiv
+
+
+
+
+
+
+\subsection{Further criteria for choosing between sampling
+  procedures}\label{choose-proc}
+
+If you use \Rfunction{oncoSimulPop} the arguments for
+\texttt{detectionSize}, \texttt{detectionDrivers} must be the same for all
+simulations. This is not the case for \Rfunction{oncoSimulSample}.
+
+
+\Rfunction{samplePop} can only sample with the arguments you give
+(especially )
 
 
 \subsection{Differences between \Rfunction{samplePop} and
   \Rfunction{oncoSimulSample}}\label{diffsample}
 
 \Rfunction{samplePop} provides two sampling times: ``last'' and
-``uniform''. "last" means to sample each individual in the very last time
-period of the simulation. "uniform" means sampling each
-individual at a time choosen uniformly from all the times recorded in the
-simulation between the time when the first driver appeared and the final
-time period. "unif" means that it is almost sure that different
-individuals will be sampled at different times. "last" does not guarantee
-that different individuals will be sampled at the same time unit, only that
-all will be sampled in the last time unit of their simulation.
+``uniform''. It also allows you to sample at the first sample time(s) at
+which the population(s) reaches a given size, which can be either the same
+or different for each simulation (with argument \texttt{popSizeSample}).
+"last" means to sample each individual in the very last time period of the
+simulation. "uniform" means sampling each individual at a time choosen
+uniformly from all the times recorded in the simulation between the time
+when the first driver appeared and the final time period. "unif" means
+that it is almost sure that different individuals will be sampled at
+different times. "last" does not guarantee that different individuals will
+be sampled at the same time unit, only that all will be sampled in the
+last time unit of their simulation.
 
 
 
@@ -3894,18 +4468,16 @@ mean with ``uniformly sampled over the course of the disease'' if that
 course is measured in terms of drivers or size of tumor.
 
 
-As an example, if you look at the output above, the object ``pancrSamp''
-contains some simulations that have only a few drivers because those
-simulations were set to run only until they had just a small number of
-cells.
+% As an example, if you look at the output above, the object ``pancrSamp''
+% contains some simulations that have only a few drivers because those
+% simulations were set to run only until they had just a small number of
+% cells.
 
-
-An additional advantage of \Rfunction{oncoSimulSample} is that we can
-specify arbitrary sampling schemes, just by passing the appropriate vector
+An advantage of \Rfunction{oncoSimulSample} is that we can specify
+arbitrary sampling schemes, just by passing the appropriate vector
 \Rfunction{detectionSize} and \Rfunction{detectionDrivers}. A disadvantage
 is that if we change the stopping conditions we can not just resample the
 data, but we need to run it again.
-
 
 There is no difference between \Rfunction{oncoSimulSample} and
 \Rfunction{oncoSimulPop} + \Rfunction{samplePop} in terms of the
@@ -3927,38 +4499,68 @@ independent calls (e.g., from different R processes) to
 since this is likely to lead to better usage of multiple cores/CPUs if you
 are examining a large number of different scenarios.
 
-\subsection{Dealing with errors in
-  \Rfunction{oncoSimulPop}}\label{errorosp}
 
-Suppose you did something like
 
-<<>>=
-pancrError <- oncoSimulPop(10, pancr,
-                           initSize = 1e-5,
-                           detectionSize = 1e7,
-                           keepEvery = 10,
-                           mc.cores = 2)
-@ 
 
-The warning you are seeing tells you there was an error in the functions
-called by \Rfunction{mclapply}. If you check the help for
-\Rfunction{mclpapply} you'll see that it returns a try-error object, so we
-can inspect it. For instance, we can do:
 
-<<>>=
-pancrError[[1]]
-@ 
 
-But that output is hard to read. This is better:
+% \subsubsection{\texttt{popSizeSample} and \Rfunction{oncoSimulPop}}
+% \label{popss-osp}
 
-<<>>=
-pancrError[[1]][1]
-@ 
+
+% Suppose you run a set of simulations with a large \texttt{finalTime} with
+% \Rfunction{oncoSimulPop}. Since you can pass to \Rfunction{samplePop} a
+% vector for \texttt{popSizeSample} this might seem to resemble a
+% deterministic version of the stochastic detection mechanism
+% (\qref{detectprob}): for each simulation, you would take a sample at the
+% first time a given population size is reached. You should notice, however,
+% that for any simulation you are not sampling with a probability of
+% detection that increases with size. Moreover, you can end up with ``NA''
+% in your sample. Suppose you have a set of fitness such that a given
+% simulation, say number 1, never went beyond total population size
+% 1000. Now, if you pass a vector of \texttt{popSizeSample} that has a value
+% larger than a 1000 for the first position, you will get an ``NA'': there
+% never is a value where for population size where that size is reached. 
+
+
+
+
+% \subsection{Dealing with errors in
+%   \Rfunction{oncoSimulPop}}\label{errorosp}
+
+% Suppose you did something like
+
+% <<>>=
+% pancrError <- oncoSimulPop(10, pancr,
+%                            initSize = 1e-5,
+%                            detectionSize = 1e7,
+%                            keepEvery = 10,
+%                            mc.cores = 2)
+% @ 
+
+% The warning you are seeing tells you there was an error in the functions
+% called by \Rfunction{mclapply}. If you check the help for
+% \Rfunction{mclpapply} you'll see that it returns a try-error object, so we
+% can inspect it. For instance, we can do:
+
+% <<>>=
+% pancrError[[1]]
+% @ 
+
+% But that output is hard to read. This is better:
+
+% <<>>=
+% pancrError[[1]][1]
+% @ 
  
-And from here you can clearly see the error that was returned by
-\Rfunction{oncoSimulIndiv}: \texttt{initSize < 1} (which is indeed true:
-we pass \texttt{initSize = 1e-5}).
+% And from here you can clearly see the error that was returned by
+% \Rfunction{oncoSimulIndiv}: \texttt{initSize < 1} (which is indeed true:
+% we pass \texttt{initSize = 1e-5}).
 
+
+
+
+%% FIXME: use cases of each.
 
 \subsection{Dealing with errors in
   \Rfunction{oncoSimulPop}}\label{errorosp}
@@ -4031,7 +4633,8 @@ we infer an oncogenetic tree from simulated data.
 %% @ 
 
 
-\subsection{Whole tumor sampling and genotypes}\label{wtsampl}
+\subsection{Whole tumor sampling, genotypes, and allele counts: what
+  gives?}\label{wtsampl}
 
 You are obtaining genotypes, regardless of order.  When we use ``whole
 tumor sampling'', it is the frequency of the mutations in each gene that
@@ -4430,99 +5033,6 @@ thus in the output you can have two columns with both genes mutated.
 %% else if you want so the names of the nodes will reflect those potentially
 %% more meaningful names.
 
-
-\subsection{Can I start the simulation from a specific mutant?}\label{initmut}
-
-You bet. In v.1 you can only give the initial mutant as one with a single
-mutated gene. In version 2, however, you can specify the genotype for the
-initial mutant with the same flexibility as in
-\Rfunction{evalGenotype}. Here we show a couple of examples (we use the
-representation of the parent-child relationships ---discussed in section \ref{phylog}--- of
-the clones so that you can see which clones appear, and from which).
-
-%% o3init <- allFitnessEffects(orderEffects = c(
-%%                             "M > D > F" = 0.99,
-%%                             "D > M > F" = 0.2,
-%%                             "D > M"     = 0.1,
-%%                             "M > D"     = 0.9),
-%%                         noIntGenes = c("u" = 0.01, 
-%%                                        "v" = 0.01,
-%%                                        "w" = 0.001,
-%%                                        "x" = 0.0001,
-%%                                        "y" = -0.0001,
-%%                                        "z" = -0.001),
-%%                         geneToModule =
-%%                             c("Root" = "Root",
-%%                               "M" = "m",
-%%                               "F" = "f",
-%%                               "D" = "d") )
-<<fig.height=6>>=
-
-o3init <- allFitnessEffects(orderEffects = c(
-                            "M > D > F" = 0.99,
-                            "D > M > F" = 0.2,
-                            "D > M"     = 0.1,
-                            "M > D"     = 0.9),
-                        noIntGenes = c("u" = 0.01, 
-                                       "v" = 0.01,
-                                       "w" = 0.001,
-                                       "x" = 0.0001,
-                                       "y" = -0.0001,
-                                       "z" = -0.001),
-                        geneToModule =
-                            c("M" = "m",
-                              "F" = "f",
-                              "D" = "d") )
-
-oneI <- oncoSimulIndiv(o3init, model = "McFL",
-                       mu = 5e-5, finalTime = 500,
-                       detectionDrivers = 3,
-                       onlyCancer = FALSE,
-                       initSize = 1000,
-                       keepPhylog = TRUE,
-                       initMutant = c("m > u > d")
-                       )
-plotClonePhylog(oneI, N = 0)
-
-
-## 
-ospI <- oncoSimulPop(4, 
-                    o3init, model = "Exp",
-                    mu = 5e-5, finalTime = 500,
-                    detectionDrivers = 3,
-                    onlyCancer = TRUE,
-                    initSize = 10,
-                    keepPhylog = TRUE,
-                    initMutant = c("d > m > z"),
-                    mc.cores = 2
-                    )
-
-op <- par(mar = rep(0, 4), mfrow = c(2, 2))
-plotClonePhylog(ospI[[1]])
-plotClonePhylog(ospI[[2]])
-plotClonePhylog(ospI[[3]])
-plotClonePhylog(ospI[[4]])
-par(op)
-
-
-ossI <- oncoSimulSample(4, 
-                        o3init, model = "Exp",
-                        mu = 5e-5, finalTime = 500,
-                        detectionDrivers = 2,
-                        onlyCancer = TRUE,
-                        initSize = 10,
-                        initMutant = c("z > d"),
-                        thresholdWhole = 1 ## check presence of initMutant
-                    )
-
-## No phylogeny is kept with oncoSimulSample, but look at the 
-## OcurringDrivers and the sample
-
-ossI$popSample
-ossI$popSummary[, "OccurringDrivers", drop = FALSE]
-
-
-@ 
 
 
 \section{Showing the relationships of clones}\label{phylog}

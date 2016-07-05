@@ -1,4 +1,4 @@
-//     Copyright 2013, 2014, 2015 Ramon Diaz-Uriarte
+//     Copyright 2013, 2014, 2015, 2016 Ramon Diaz-Uriarte
 
 //     This program is free software: you can redistribute it and/or modify
 //     it under the terms of the GNU General Public License as published by
@@ -25,11 +25,27 @@
 #include <limits>
 #include <random>
 
+// Yes, even if covr suggests epistasis, Poset_struct and
+// Gene_Module_struct are not used they are used a lot.
+// There are many vectors of these structs. This is just a problem
+// of coverage testing of structs. Google for it.
 
 enum class Dependency {monotone, semimonotone, xmpn, single, NA}; 
 // enum class TypeModel {exp, bozic1, mcfarlandlog, mcfarland,
 //     beerenwinkel, mcfarland0,  bozic2};
 // enum class TypeModel {exp, bozic1, mcfarlandlog};
+
+struct genesWithoutInt {
+  int shift; // access the s as s[index of mutation or index of mutated
+	     // gene in genome - shift]. shift is the min. of NumID, given
+	     // how that is numbered from R. We assume mutations always
+	     // indexed 1 to something. Not 0 to something.
+  // If shift is -9, no elements The next first two are not really
+  // needed. Will remove later. Nope! we use them to provide nice output.
+  std::vector<int> NumID;
+  std::vector<std::string> names;
+  std::vector<double> s;
+};
 
 struct Poset_struct {
   Dependency typeDep;
@@ -45,6 +61,7 @@ struct Poset_struct {
 // We use same structure for epistasis and order effects. With order
 // effects, NumID is NOT sorted, but reflects the order of the
 // restriction. And checking is done using that fact.
+
 struct epistasis {
   double s;
   std::vector<int> NumID; //a set instead? nope.using includes with epistasis
@@ -52,17 +69,6 @@ struct epistasis {
 };
 
 
-struct genesWithoutInt {
-  int shift; // access the s as s[index of mutation or index of mutated
-	     // gene in genome - shift]. shift is the min. of NumID, given
-	     // how that is numbered from R. We assume mutations always
-	     // indexed 1 to something. Not 0 to something.
-  // If shift is -9, no elements The next first two are not really
-  // needed. Will remove later. Nope! we use them to provide nice output.
-  std::vector<int> NumID;
-  std::vector<std::string> names;
-  std::vector<double> s;
-};
 
 struct Gene_Module_struct {
   std::string GeneName;
@@ -186,7 +192,7 @@ TypeModel stringToModel(const std::string& dep);
 
 Dependency stringToDep(const std::string& dep);
 
-std::string depToString(const Dependency dep);
+// std::string depToString(const Dependency dep);
 
 void obtainMutations(const Genotype& parent,
 		     const fitnessEffectsAll& fe,
@@ -240,6 +246,14 @@ double mutationFromScratch(const std::vector<double>& mu,
 // 			  const fitnessEffectsAll& muEF);
 
 double prodMuts(const std::vector<double>& s);
+
+
+double set_cPDetect(const double n2, const double p2,
+		    const double PDBaseline);
+
+bool detectedSizeP(const double n, const double cPDetect,
+		   const double PDBaseline, std::mt19937& ran_gen);
+
 
 #endif
 

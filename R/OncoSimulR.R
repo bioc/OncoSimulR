@@ -40,8 +40,9 @@ oncoSimulSample <- function(Nindiv,
                                 sample(nd, Nindiv,
                                        replace = TRUE)
                             },
+                            detectionProb = NA,
                             sampleEvery = ifelse(model %in% c("Bozic", "Exp"), 1,
-                                0.025),
+                                                 0.025),
                             initSize = 500,
                             s = 0.1,
                             sh = -1,
@@ -63,7 +64,7 @@ oncoSimulSample <- function(Nindiv,
                             thresholdWhole = 0.5,
                             initMutant = NULL,
                             verbosity  = 1,
-                            showProgress = TRUE,
+                            showProgress = FALSE,
                             seed = "auto"){
     ## No longer using mclapply, because of the way we use the limit on
     ## the number of tries.
@@ -188,8 +189,8 @@ oncoSimulSample <- function(Nindiv,
                                seed = seed,
                                initMutant = initMutant,
                                keepPhylog = keepPhylog,
-                               mutationPropGrowth = mutationPropGrowth)
-        
+                               mutationPropGrowth = mutationPropGrowth,
+                               detectionProb = detectionProb)        
         if(tmp$other$UnrecoverExcept) {
             return(f.out.unrecover.except(tmp))
         }
@@ -313,8 +314,9 @@ oncoSimulPop <- function(Nindiv,
                          muEF = NULL,
                          detectionSize = 1e8,
                          detectionDrivers = 4,
+                         detectionProb = NA,
                          sampleEvery = ifelse(model %in% c("Bozic", "Exp"), 1,
-                             0.025),
+                                              0.025),
                          initSize = 500,
                          s = 0.1,
                          sh = -1,
@@ -376,8 +378,8 @@ oncoSimulPop <- function(Nindiv,
                         verbosity = verbosity,
                         seed = seed, keepPhylog = keepPhylog,
                         initMutant = initMutant,
-                        mutationPropGrowth = mutationPropGrowth
-                    ),
+                        mutationPropGrowth = mutationPropGrowth,
+                        detectionProb = detectionProb),
                     mc.cores = mc.cores
                     )
     class(pop) <- "oncosimulpop"
@@ -395,8 +397,9 @@ oncoSimulIndiv <- function(fp,
                            muEF = NULL,
                            detectionSize = 1e8,
                            detectionDrivers = 4,
+                           detectionProb = NA,
                            sampleEvery = ifelse(model %in% c("Bozic", "Exp"), 1,
-                               0.025),
+                                                0.025),
                            initSize = 500,
                            s = 0.1,
                            sh = -1,
@@ -422,6 +425,13 @@ oncoSimulIndiv <- function(fp,
                            seed = NULL
                            ) {
     call <- match.call()
+    if(all(c(is.na(detectionProb),
+             is.na(detectionSize),
+             is.na(detectionDrivers),
+             is.na(finalTime))))
+        stop("At least one stopping condition should be given.",
+             " At least one of detectionProb, detectionSize, detectionDrivers,",
+             " finalTime. Otherwise, we'll run forever.")
     ## legacies from poor name choices
     typeFitness <- switch(model,
                           "Bozic" = "bozic1",
@@ -471,6 +481,12 @@ oncoSimulIndiv <- function(fp,
     ## We do not test for equality to 0. That might be a weird but
     ## legitimate case?
 
+    ## No user-visible magic numbers
+    ## if(is.null(keepEvery))
+    ##     keepEvery <- -9
+    if(is.na(keepEvery)) keepEvery <- -9
+
+    
     if( (keepEvery > 0) & (keepEvery < sampleEvery)) {
         keepEvery <- sampleEvery
         warning("setting keepEvery <- sampleEvery")
@@ -483,6 +499,11 @@ oncoSimulIndiv <- function(fp,
     if( (typeFitness == "exp") && (death != 1) )
         warning("Using fitness exp with death != 1")
 
+
+    if(is.na(detectionDrivers)) detectionDrivers <- (2^31) - 1
+    if(is.na(detectionSize)) detectionSize <- Inf
+    if(is.na(finalTime)) finalTime <- Inf
+    
     
     if(!inherits(fp, "fitnessEffects")) {
         if(any(unlist(lapply(list(fp, 
@@ -496,8 +517,10 @@ oncoSimulIndiv <- function(fp,
         }
         if(!is.null(muEF))
             stop("Mutator effects cannot be especified with the old poset format")
-        if(length(initMutant) > 1)
-            stop("With the old poset, initMutant can only take a single value.")
+        if( length(initMutant) > 0)  
+            warning("With the old poset format you can no longer use initMutant.",
+                    " The initMutant you passed will be ignored.")
+            ## stop("With the old poset, initMutant can only take a single value.")
         ## Seeding C++ is now much better in new version
         if(is.null(seed) || (seed == "auto")) {## passing a null creates a random seed
             ## name is a legacy. This is really the seed for the C++ generator.
@@ -507,6 +530,7 @@ oncoSimulIndiv <- function(fp,
         if(verbosity >= 2)
             cat(paste("\n Using ", seed, " as seed for C++ generator\n"))
 
+        if(!is.na(detectionProb)) stop("detectionProb cannot be used in v.1 objects")
         ## if(message.v1)
         ##     message("You are using the old poset format. Consider using the new one.")
    
@@ -531,7 +555,7 @@ oncoSimulIndiv <- function(fp,
                                      initSize_iter = 500, 
                                      seed = seed, 
                                      verbosity = verbosity, 
-                                     speciesFS = 40000,  
+                                     speciesFS = 10000,  
                                      ratioForce = 2,
                                      typeFitness = typeFitness,
                                      max.memory = max.memory,
@@ -582,7 +606,7 @@ oncoSimulIndiv <- function(fp,
                                         initSize_iter = 500, 
                                         seed = seed, 
                                         verbosity = verbosity, 
-                                        speciesFS = 40000,  
+                                        speciesFS = 10000,  
                                         ratioForce = 2,
                                         typeFitness = typeFitness,
                                         max.memory = max.memory,
@@ -600,7 +624,8 @@ oncoSimulIndiv <- function(fp,
                                         errorHitWallTime = errorHitWallTime,
                                         errorHitMaxTries = errorHitMaxTries,
                                         keepPhylog = keepPhylog,
-                                        MMUEF = muEF),
+                                        MMUEF = muEF,
+                                        detectionProb = detectionProb),
                   silent = !verbosity)
         objClass <- c("oncosimul", "oncosimul2")
     }
@@ -1390,7 +1415,10 @@ plotClonePhylog <- function(x, N = 1, t = "last",
     if(!inherits(x, "oncosimul2"))
         stop("Phylogenetic information is only stored with v >=2")
     if(nrow(x$other$PhylogDF) == 0)
-        stop("It seems you run the simulation with keepPhylog= FALSE")
+        stop("It seems you run the simulation with keepPhylog= FALSE. ",
+             "This error can also appear if your simulation exited ",
+             "very fast, before any clones beyond the initial were ",
+             "generated.")
     pc <- phylogClone(x, N, t, keepEvents)
     l0 <- igraph::layout.reingold.tilford(pc$g)
     if(!timeEvents) {
@@ -1618,12 +1646,12 @@ oncoSimul.internal <- function(poset, ## restrict.table,
     ## transpose the table
     rtC <- convertRestrictTable(restrict.table)
 
+    
     return(c(
         BNB_Algo5(restrictTable = rtC,
         numDrivers = numDrivers,
         numGenes = numGenes,
         typeCBN_= typeCBN,
-        ## birthRate = birth, 
         s = s, 
         death = death,
         mu = mu,
@@ -1643,7 +1671,6 @@ oncoSimul.internal <- function(poset, ## restrict.table,
         initMutant = initMutant,
         maxWallTime = max.wall.time,
         keepEvery = keepEvery,
-        # alpha = alpha,
         sh = sh,
         K = K,
         detectionDrivers = detectionDrivers,

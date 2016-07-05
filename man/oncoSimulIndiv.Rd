@@ -12,6 +12,7 @@
   Simulate tumor progression for one or more individuals, optionally
   returning just a sample in time.
 }
+
 \description{
   Simulate tumor progression including possible restrictions in the
   order of driver mutations. Optionally add passenger
@@ -22,6 +23,7 @@
  oncoSimulIndiv(fp, model = "Exp", 
                 numPassengers = 0, mu = 1e-6, muEF = NULL,
                 detectionSize = 1e8, detectionDrivers = 4,
+                detectionProb = NA,                  
                 sampleEvery = ifelse(model \%in\% c("Bozic", "Exp"), 1,
                              0.025),
                 initSize = 500, s = 0.1, sh = -1,
@@ -43,6 +45,7 @@
 oncoSimulPop(Nindiv, fp, model = "Exp", numPassengers = 0, mu = 1e-6,
                 muEF = NULL,
                 detectionSize = 1e8, detectionDrivers = 4,
+                detectionProb = NA,                  
                 sampleEvery = ifelse(model \%in\% c("Bozic", "Exp"), 1,
                              0.025),
                 initSize = 500, s = 0.1, sh = -1,
@@ -86,6 +89,7 @@ oncoSimulSample(Nindiv,
                                 sample(nd, Nindiv,
                                        replace = TRUE)
                             },
+                detectionProb = NA,
                 sampleEvery = ifelse(model \%in\% c("Bozic", "Exp"), 1,
                     0.025),
                 initSize = 500,
@@ -105,7 +109,7 @@ oncoSimulSample(Nindiv,
                 thresholdWhole = 0.5,
                 initMutant = NULL,
                 verbosity  = 1,
-                showProgress = TRUE,
+                showProgress = FALSE,
                 seed = "auto")
 
 
@@ -186,6 +190,9 @@ oncoSimulSample(Nindiv,
 \item{detectionSize}{ What is the minimal number of cells for cancer
 to be detected.  For \code{oncoSimulSample} this can be a vector.
 
+If set to NA, \code{detectionSize} plays no role in stopping the
+simulations.
+
 } 
 
 \item{detectionDrivers}{ The minimal number of drivers (not modules,
@@ -203,7 +210,66 @@ specified it explicitly or because all of the genes are in the
 noIntGenes component) the simulations should not stop based on the
 number of drivers (and, thus, the default is set to 9e6).
 
+If set to NA, \code{detectionDrivers} plays no role in stopping the
+simulations.
+
 }
+
+\item{detectionProb}{ Vector of arguments for the mechanism where
+  probability of detection depends on size. If \code{NA}, this mechanism
+  is not used. If \sQuote{default}, the vector will be populated with
+  default values.  Otherwise, a named vector with some of the following
+  named elements (see \sQuote{Details}):
+  \itemize{
+
+    \item{PDBaseline}{Baseline size subtracted to total population size
+    to compute the probability of detection. If not given explicitly,
+    the default is \code{1.1*initSize}.
+    }
+
+    \item{p2}{The probability of detection at population size
+    \code{n2}. If you specificy \code{p2} you must also specify
+    \code{n2} and you must not specify \code{cPDetect}. The fault is 0.1.}
+
+    \item{n2}{The population size at which probability of detection is
+      \code{p2}. The default is \code{1.1*initSize}.}
+
+    \item{cPDetect}{The change in probability of detection with size. If
+      you specify it, you should not specify either of \code{p2} or
+      \code{n2}. See \sQuote{Details}.  }
+
+    \item{checkSizePEvery}{Time between successive checks for the
+    probability of exiting as a function of population size. If not
+    given explicitly, the default is 20. See \sQuote{Details}.}
+
+}
+If you only provide some of the elements (except for the pair \code{p2},
+\code{n2}, where you must provide both if you provide any), the rest
+will be filled with default values.
+
+This option can not be used with v.1 objects.
+
+}
+
+
+%% \item{PDBaseline}{For the mechanism where probability of detection
+%%   depends on size, the baseline. See \sQuote{Details}.
+%% }
+
+%% \item{p2}{For the mechanism where probability of detection
+%%   depends on size, the probability of detection at size \code{n2}. See \sQuote{Details}.}
+
+%% \item{n2}{For the mechanism where probability of detection depends on
+%%   size, the size at which probability of detection is \code{p2}. See
+%%   \sQuote{Details}. }
+
+%% \item{cPDetect}{ For the mechanism where probability of detection
+%%   depends on size, the change in probability of detection with size. If
+%%   you specify it, you should not specify either of \code{p2} or
+%%   \code{n2}. See \sQuote{Details}.  }
+
+%% \item{checkSizePEvery}{ For the mechanism where probability of detection
+%%   depends on size, time between successive checks. See \sQuote{Details}.  }
 
 \item{sampleEvery}{
   
@@ -233,7 +299,7 @@ number of drivers (and, thus, the default is set to 9e6).
   value of 0 means there are no penalties for a driver appearing in a
   clone when its restrictions are not satisfied.
 
-  To specify "sh=Inf" (in Diaz-Uriarte, 2014) use sh = -1.
+  To specify "sh=Inf" (in Diaz-Uriarte, 2015) use sh = -1.
 
   Only relevant if using a poset as this is included in the
   fitnessEffects object.
@@ -243,18 +309,28 @@ number of drivers (and, thus, the default is set to 9e6).
   Initial population equilibrium size in the McFarland models.
 
 }
+
 \item{keepEvery}{
+
   Time interval between successive whole population samples that are
-  actually stored. This must be larger or equal to sampleEvery. If keepEvery is
-  not a multiple integer of sampleEvery, the keepEvery in use will be the
-  smallest multiple integer of keepEvery larger than the specified
-  keepEvery.
+actually stored. This must be larger or equal to \code{sampleEvery}. If
+keepEvery is not a multiple integer of sampleEvery, the interval between
+successive samples that are stored will be the smallest multiple integer
+of \code{sampleEvery} that is larger than or equal to \code{keepEvery}.
+
+  %% keepEvery in use will be the
+  %% smallest multiple integer of sampleEvery larger than the specified
+  %% keepEvery.
 
   If you want nice plots, set \code{sampleEvery} and \code{keepEvery} to
   small values (say, 1 or 0.5). Otherwise, you can use a
   \code{sampleEvery} of 1 but a \code{keepEvery} of 15, so that the
   return objects are not huge.
 
+
+  Setting \code{keepEvery = NA} means we only keep the very last
+  sample. This is useful if you only care about the final state of the
+  simulation, not its complete history.
 }
 
 %% \item{endTimeEvery}{
@@ -303,22 +379,27 @@ number of drivers (and, thus, the default is set to 9e6).
 }
 
 \item{finalTime}{
-  What is the maximum number of time units that the simulation can run.
+  What is the maximum number of time units that the simulation can
+  run. Set to NA to disable this limit.
 
 }
 \item{onlyCancer}{
   Return only simulations that reach cancer?
 
   If set to TRUE, only simulations that satisfy the
-  \code{detectionDrivers} or the \code{detectionSize} requirements will
+  \code{detectionDrivers} or the \code{detectionSize} requirements or
+  that are "detected" because of the \code{detectionProb} mechanism will
   be returned: the simulation will be repeated, within the limits set by
   \code{max.num.tries} and \code{max.wall.time} (and, for
   \code{oncoSimulSample} also \code{max.num.tries.total} and
   \code{max.wall.time.total}), until one which meets the
-  \code{detectionDrivers} or \code{detectionSize} is
-  obtained. Otherwise, the simulation is returned regardless of final
-  population size or number of drivers in any clone and this includes
-  simulations where the population goes extinct.
+  \code{detectionDrivers} or \code{detectionSize} or one which is
+  detected stochastically under \code{detectionProb} is
+  obtained.
+
+  If \code{onlyCancer = FALSE} the simulation is returned regardless of
+  final population size or number of drivers in any clone and this
+  includes simulations where the population goes extinct.
 
 }
 
@@ -341,12 +422,18 @@ number of drivers (and, thus, the default is set to 9e6).
 %% \item{seed}{The seed to use for the C++ random number generator. If not
 %%   passed explicitly (the default) then chosen from R.}
 
-\item{initMutant}{For v.2, a string with the mutations of the initial
+\item{initMutant}{For v.2: a string with the mutations of the initial
   mutant, if any. This is the same format as for
-  \code{\link{evalGenotype}}. For v.1, the single mutation of the
-  initial clone for the simulations. The default (if you pass nothing)
-  is to start the simulation from the wildtype genotype with nothing
-  mutated.}
+  \code{\link{evalGenotype}}. The default (if you pass nothing) is to
+  start the simulation from the wildtype genotype with nothing mutated.
+  For v.1 we no longer accept initMutant: it will be ignored. }
+
+%% \item{initMutant}{For v.2, a string with the mutations of the initial
+%%   mutant, if any. This is the same format as for
+%%   \code{\link{evalGenotype}}. For v.1, the single mutation of the
+%%   initial clone for the simulations. The default (if you pass nothing)
+%%   is to start the simulation from the wildtype genotype with nothing
+%%   mutated.}
 
 
 \item{max.num.tries}{Only applies when \code{onlyCancer = TRUE}. What is
@@ -502,28 +589,58 @@ of the individual done, and the number of attempts and time used.}
 
 
 
-    \code{GenotypesWDistinctOrderEff} provides the information about
-    order effects that is missing from \code{Genotypes}. When there are
-    order effects, the \code{Genotypes} matrix can contain genotypes
-    that are not distinguishable. Suppose there are two genes, the first
-    and the second. In the \code{Genotype} output you can get two
-    columns where there is a 1 in both genes: those two columns
-    correspond to the two possible orders (first gene mutated first, or
-    first gene mutated after the
-    second). \code{GenotypesWDistinctOrderEff} disambiguates this. The
-    same is done by \code{GenotypesLabels}; this is easier to decode for
-    a human (a string of gene labels) but a little bit harder to parse
-    automatically.  Note that when you use the default print method for
-    this object, you get, among others, a two-column display with the
-    \code{GenotypeLabels} information. When order matters, a genotype
-    shown as ``x > y _ z'' means that a mutation in ``x'' happened
-    before a mutation in ``y''; there is also a mutation in ``z'' (which
-    could have happened before or after either of ``x'' or ``y''), but
-    ``z'' is a gene for which order does not matter. When order does not
-    matter, a comma "," separates the identifiers of mutated genes.
+  \code{GenotypesWDistinctOrderEff} provides the information about
+  order effects that is missing from \code{Genotypes}. When there are
+  order effects, the \code{Genotypes} matrix can contain genotypes
+  that are not distinguishable. Suppose there are two genes, the first
+  and the second. In the \code{Genotype} output you can get two
+  columns where there is a 1 in both genes: those two columns
+  correspond to the two possible orders (first gene mutated first, or
+  first gene mutated after the
+  second). \code{GenotypesWDistinctOrderEff} disambiguates this. The
+  same is done by \code{GenotypesLabels}; this is easier to decode for
+  a human (a string of gene labels) but a little bit harder to parse
+  automatically.  Note that when you use the default print method for
+  this object, you get, among others, a two-column display with the
+  \code{GenotypeLabels} information. When order matters, a genotype
+  shown as ``x > y _ z'' means that a mutation in ``x'' happened
+  before a mutation in ``y''; there is also a mutation in ``z'' (which
+  could have happened before or after either of ``x'' or ``y''), but
+  ``z'' is a gene for which order does not matter. When order does not
+  matter, a comma "," separates the identifiers of mutated genes.
 
-    
+
+  Detection of cancer can be a deterministic process, where cancer is
+  always detected (and, thus, simulation ended) when certain conditions
+  are met (\code{detectionSize},
+  \code{detectionDrivers}). Alternatively, it can be stochastic process
+  where probability of detection depends on size. Every so often (see
+  below) we assess population size, and detect cancer or not
+  probabilistically (comparing the probability of detection for that
+  size with a random uniform number). Probability of detection changes
+  with population size according to the function
   
+  \deqn{ 1 - e^{-cPDetect (populationsize - PDBaseline)}}.
+
+  You can pass \code{cPDetect} manually (you will need to set \code{n2}
+  and \code{p2} to NA). However, it might be more intuitive to specify
+  the pair \code{n2}, \code{p2}, such that the probability of detection
+  is \eqn{p2} for population size \eqn{n2} (and from that pair we solve
+  for the value of \code{cPDetect}). How often do we check? That is
+  controlled by \code{checkSizePEvery}, the (minimal) time between
+  successive checks (from among the sampling times given by
+  \code{sampleEvery}: the interval between successive assessments will
+  be the smallest multiple integer of \code{sampleEvery} that is
+  larger than \code{checkSizePEvery} ---see vignette for details).
+  \code{checkSizePEvery} has, by default, a different (and much larger)
+  value than \code{sampleEvery} both to allow to examine the effects of
+  sampling, and to avoid many costly random number generations.
+
+  Please note that \code{detectionProb} is NOT available with version 1
+  objects.
+
+  %% : we assess probability of exiting at every sampling time that (the
+  %% closest possible to) a multiple of \code{checkSizePEvery}.
 
 }
 \value{

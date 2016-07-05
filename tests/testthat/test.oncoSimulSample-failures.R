@@ -27,6 +27,7 @@ test_that("oncoSimulSample out of time triggered, 2", {
                              sh = -0.3,
                              typeDep = "MN"))
               expect_message(out <- oncoSimulSample(5000, pancr,
+                                                    detectionProb = NA,
                                                     max.wall.time.total = 1),
                           "Run out of time")
               expect_true(out$HittedWallTime)
@@ -58,6 +59,7 @@ test_that("oncoSimulSample out of attempts triggered, 2", {
                                       sh = -0.3,
                                       typeDep = "MN"))
               expect_message(out <- oncoSimulSample(5000, pancr,
+                                                    detectionProb = NA,
                                                  max.num.tries.total = 5002),
                           "Run out of attempts (in C++)", fixed = TRUE)
               expect_true(out$HittedMaxTries)
@@ -83,6 +85,7 @@ test_that("oncoSimulSample out of time in C++ triggered", {
                                                     detectionSize = 1e9,
                                                     detectionDrivers = 6,
                                                     initSize = 50,
+                                                    detectionProb = NA,
                                                     finalTime = 10000,
                                                     sampleEvery = 0.005,
                                                     max.wall.time.total = 1),

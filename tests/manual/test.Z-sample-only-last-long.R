@@ -3,25 +3,25 @@
 
 data(examplePosets)
 RNGkind("Mersenne-Twister") 
-
-bozic <- function(poset) oncoSimulIndiv(poset)
-bozic9 <- function(poset) oncoSimulIndiv(poset, keepEvery = -9)
+                         
+bozic <- function(poset) oncoSimulIndiv(poset, detectionProb = NA)
+bozic9 <- function(poset) oncoSimulIndiv(poset, keepEvery = -9, detectionProb = NA)
     
-Exp <- function(poset) oncoSimulIndiv(poset, model = "Exp")
-Exp9 <- function(poset) oncoSimulIndiv(poset, model = "Exp", keepEvery = -9)
+Exp <- function(poset) oncoSimulIndiv(poset, model = "Exp", detectionProb = NA)
+Exp9 <- function(poset) oncoSimulIndiv(poset, model = "Exp", keepEvery = -9, detectionProb = NA)
 
 mc <- function(poset) oncoSimulIndiv(poset, model = "McFL",
                                      mu = 5e-7,
                                      initSize = 4000,
                                      sampleEvery = 0.025,
                                      finalTime = 15000,
-                                     keepEvery = 5)
+                                     keepEvery = 5, detectionProb = NA)
 mc9 <- function(poset) oncoSimulIndiv(poset, model = "McFL",
                                      mu = 5e-7,
                                      initSize = 4000,
                                      sampleEvery = 0.025,
                                      finalTime = 15000,
-                                      keepEvery = -9)
+                                      keepEvery = -9, detectionProb = NA)
 
 
 ## A list, where each element is a list
