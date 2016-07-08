@@ -224,7 +224,7 @@ simulations.
 
     \item{PDBaseline}{Baseline size subtracted to total population size
     to compute the probability of detection. If not given explicitly,
-    the default is \code{1.1*initSize}.
+    the default is \code{1.2 * initSize}.
     }
 
     \item{p2}{The probability of detection at population size
@@ -501,10 +501,10 @@ of \code{sampleEvery} that is larger than or equal to \code{keepEvery}.
 
 
 
-\item{verbosity}{
-  If 0, run as silently as possible. Otherwise, increasing values of
-  verbosity provide progressively more information about intermediate
-  steps, possible numerical notes/warnings from the C++ code, etc.
+\item{verbosity}{ If 0, run silently. Iincreasing values of verbosity
+  provide progressively more information about intermediate steps,
+  possible numerical notes/warnings from the C++ code, etc. Values less
+  than 0 supress some default notes: use with care.
 
 }
 
