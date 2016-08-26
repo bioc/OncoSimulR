@@ -12,10 +12,11 @@ author: "
 		 "
 date: "`r paste0(Sys.Date(),'. OncoSimulR version ', packageVersion('OncoSimulR'), '. Revision: ', system('git rev-parse --short HEAD', intern = TRUE))`"
 output: 
-  bookdown::html_document2: 
+  bookdown::html_document2:
+    css: custom4.css
     toc: yes
     toc_float: true
-    css: custom4.css
+
 classoption: a4paper
 geometry: margin=3cm
 fontsize: 12pt
@@ -31,6 +32,66 @@ vignette: >
   %\VignetteDepends{OncoSimulR}
 ---
 
+<!-- html_book seems to ignore the toc_float -->
+
+  <!-- bookdown::gitbook: -->
+  <!--   self_contained: false -->
+  <!--   split_by: rmd -->
+  <!--   css: custom4.css -->
+  <!--   github-repo: "rdiaz02/OncoSimul" -->
+  <!--   config: -->
+  <!--     toc: -->
+  <!--       collapse: subsection -->
+  <!--     download: null -->
+  <!--     sharing: null -->
+
+
+<!-- A great one? Well... Slow, and no subsubsection and strange scrolling-->
+<!-- render("OncoSimulR.Rmd", bookdown::gitbook(self_contained = FALSE, split_by = "none")) -->
+<!-- Slow rendering, and the clicking on TOC to get expanded entries does -->
+<!-- not work. -->
+<!-- And it creates a libs dir that takes 5 MB. -->
+<!-- What I like is the possibility to hide the TOC, change rendering -->
+<!-- (color, font size and type) and download.  -->
+
+<!-- This did not work well either.  -->
+  <!-- bookdown::gitbook: -->
+  <!--   toc-depth: 4  -->
+  <!--   self_contained: false -->
+  <!--   split_by: none -->
+  <!--   css: custom4.css -->
+  <!--   github-repo: "rdiaz02/OncoSimul" -->
+  <!--   config: -->
+  <!--     toc: -->
+  <!--       collapse: section -->
+  <!--       scroll_highlight: true -->
+  <!--       after: null -->
+  <!--       before: null -->
+  <!--       toc-depth: 4		 -->
+  <!--     toolbar: -->
+  <!--       position: fixed -->
+  <!--     edit: -->
+  <!--       link: null -->
+  <!--       text: null -->
+  <!--     download: null -->
+  <!--     search: no -->
+  <!--     fontsettings: -->
+  <!--       theme: white -->
+  <!--       family: sans -->
+  <!--       size: 2 -->
+  <!--     sharing: null -->
+
+<!-- download, only on my web site -->
+<!-- EPUB and MOBI and PDF -->
+<!-- url: "https\://" -->
+
+<!-- output:  -->
+<!--   bookdown::html_document2:  -->
+<!--     toc: yes -->
+<!--     toc_float: true -->
+<!--     css: custom4.css -->
+
+
 <!-- ##    <rdiaz02@gmail.com>, <http://ligarto.org/rdiaz> -->
 <!-- ## date: "`r Sys.Date()`" -->
 
@@ -38,7 +99,20 @@ vignette: >
 <!-- ## Bioc html_document2 too wide margins and really ugly -->
 <!-- ## Simplest is to use bookdown and add BioC CSS -->
 <!-- ## Rmdformats is really neat, but no support for \@ref -->
-<!-- ## PDF as: render("OncoSimulR.Rmd", output_format = bookdown::pdf_document2(toc = TRUE, toc_depth = 4, keep_tex = TRUE, includes = includes("before_body" = "my-header.tex"))) -->
+<!-- ## PDF as: 
+
+<!-- render("OncoSimulR.Rmd", output_format = bookdown::pdf_document2(toc = TRUE, toc_depth = 4, keep_tex = TRUE)  -->
+
+<!-- -->
+
+
+<!-- After the fix in BiocStyle 2.3.24 can use this too, which gives the  -->
+<!-- BiocStyle output, but it is not the same as the one for Rnw and -->
+<!-- breaks refs, etc. I do not really like it-->
+<!-- ## PDF as: render("OncoSimulR.Rmd", output_format = BiocStyle::pdf_document2(toc = TRUE, toc_depth = 4, keep_tex = TRUE)) -->
+
+
+
 
 
 <!-- Fomr https://github.com/rstudio/bookdown/issues/153 -->
@@ -50,7 +124,7 @@ MathJax.Hub.Config({
 
 
 ```{r setup, include=FALSE}
-## use collapse for bookdowan, to collapse all the source and output
+## use collapse for bookdown, to collapse all the source and output
 ## blocks from one code chunk into a single block
 knitr::opts_chunk$set(echo = TRUE, collapse = TRUE)
 options(width = 70)
@@ -81,8 +155,6 @@ specified, for example, by Oncogenetic Trees
 [CBN: @Beerenwinkel2007; @Gerstung2009; @Gerstung2011], with the
 possibility of adding passenger mutations to the simulations and
 allowing for several types of sampling.
-
-
 
 
 Since then, OncoSimulR has been vastly extended to allow you to
@@ -607,6 +679,15 @@ poster, [http://dx.doi.org/10.7490/f1000research.1112860.1](http://dx.doi.org/10
 presented at ECCB 2016.
 
 
+### HTML and PDF versions of the vignette {#pdfvignette}
+
+A PDF version of this vignette is available from
+<https://rdiaz02.github.io/OncoSimul/pdfs/OncoSimulR.pdf>.  And an
+HTML version from
+<https://rdiaz02.github.io/OncoSimul/OncoSimulR.html>. These files
+correspond to the most recent, github version, of the package (i.e.,
+they might include changes not yet available from the BioConudctor
+package).
 
 
 
@@ -762,7 +843,7 @@ wanted.)
 
 
 That's it. You can plot that fitnessEffects object
-```{r, out.width="6cm", out.height = "6cm"}
+```{r}
 plot(fem4)
 ``` 
 
@@ -792,7 +873,7 @@ indicating that the gene of that column is mutated or not. Column $g+ 1$
 contains the fitness values. And you do not even need to specify all the
 genotypes (we will assume that the missing genotypes have fitness 1):
 
-```{r, out.width="6cm", out.height = "6cm"}
+```{r}
 m6 <- cbind(c(1, 1), c(1, 0), c(2, 3))
 fem6 <- allFitnessEffects(genotFitness = m6)
 evalAllGenotypes(fem6, addwt = TRUE)
@@ -2935,7 +3016,7 @@ to a change in the cell's fitness by $s_P$. For cells with the primary
 driver mutation, the fitness advantage obtained with each secondary driver
 mutation is $s_{DP}$."
 
-The proliferation probability is given as (ignoring constants such as $1/2$):
+The proliferation probability is given as:
 
 
 * $\frac{1}{2}(1 + s_p)^k$ when there are $k$ secondary drivers mutated and no primary diver;
@@ -2948,7 +3029,7 @@ apoptosis is one minus the proliferation rate.
 
 We cannot find a simple mapping from their expressions to our fitness
 parameterization, but we can get fairly close by using a DAG; in this one,
-note the unusual feature of having on of the "s" terms (that for the
+note the unusual feature of having one of the "s" terms (that for the
 driver dependency on root) be negative. Using the parameters given in the
 legend of their Figure 3 for $s_p, S_D^+, S_D^-, S_{DP}$ and obtaining
 that negative value for the dependency of the driver on root we can do:
@@ -2990,17 +3071,17 @@ plot(b1, use_ggrepel = TRUE)
 ``` 
 
 
-### Specifying fitness directly
+### Specifying fitness of genotypes directly
 
 An alternative approach to specify the fitness, if the number of
 genotypes is reasonably small, is to directly evaluate fitness as
 given by their expressions. Then, use the `genotFitness` argument to
 *`allFitnessEffects`*. 
 
-We will create all possible genotypes and then a function that gives
-the fitness of each genotype according to their expression; we will
-call this function on the data frame of genotypes, and pass this
-data frame to *`allFitnessEffects`*.
+We will create all possible genotypes; then we will write a function
+that gives the fitness of each genotype according to their
+expression; finally, we will call this function on the data frame of
+genotypes, and pass this data frame to *`allFitnessEffects`*.
 
 
 ```{r}
@@ -3474,7 +3555,7 @@ Of course the "s" and "sh" are set arbitrarily here.
 
 
 
-## Raphael and Vandin'2 2014 modules {#raphael-ex}
+## Raphael and Vandin's 2014 modules {#raphael-ex}
 
 In @Raphael2014a, the authors show several progression models
 in terms of modules. We can code the extended poset for the colorectal
