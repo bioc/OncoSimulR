@@ -63,6 +63,8 @@ oncoSimulSample <- function(Nindiv,
                             typeSample = "whole",
                             thresholdWhole = 0.5,
                             initMutant = NULL,
+                            AND_DrvProbExit = FALSE,
+                            fixation = NULL,
                             verbosity  = 1,
                             showProgress = FALSE,
                             seed = "auto"){
@@ -190,7 +192,9 @@ oncoSimulSample <- function(Nindiv,
                                initMutant = initMutant,
                                keepPhylog = keepPhylog,
                                mutationPropGrowth = mutationPropGrowth,
-                               detectionProb = detectionProb)        
+                               detectionProb = detectionProb,
+                               AND_DrvProbExit = AND_DrvProbExit,
+                               fixation = fixation)        
         if(tmp$other$UnrecoverExcept) {
             return(f.out.unrecover.except(tmp))
         }
@@ -291,7 +295,7 @@ samplePop <- function(x, timeSample = "last",
                             popSizeSample = popSizeSample)
         dim(z) <- c(1, length(z))
         if(is.null(gN) && (!is.null(x$geneNames)))
-            gN <- geneNames
+            gN <- x$geneNames
     }
     message("\n Subjects by Genes matrix of ",
         nrow(z), " subjects and ",
@@ -338,6 +342,8 @@ oncoSimulPop <- function(Nindiv,
                          errorHitWallTime = TRUE,
                          errorHitMaxTries = TRUE,
                          initMutant = NULL,
+                         AND_DrvProbExit = FALSE,
+                         fixation = NULL,
                          verbosity  = 0,
                          mc.cores = detectCores(),
                          seed = "auto") {
@@ -379,7 +385,9 @@ oncoSimulPop <- function(Nindiv,
                         seed = seed, keepPhylog = keepPhylog,
                         initMutant = initMutant,
                         mutationPropGrowth = mutationPropGrowth,
-                        detectionProb = detectionProb),
+                        detectionProb = detectionProb,
+                        AND_DrvProbExit = AND_DrvProbExit,
+                        fixation = fixation),
                     mc.cores = mc.cores
                     )
     class(pop) <- "oncosimulpop"
@@ -422,16 +430,33 @@ oncoSimulIndiv <- function(fp,
                            errorHitMaxTries = TRUE,
                            verbosity = 0,
                            initMutant = NULL,
+                           AND_DrvProbExit = FALSE,
+                           fixation = NULL,
                            seed = NULL
                            ) {
     call <- match.call()
-    if(all(c(is.na(detectionProb),
-             is.na(detectionSize),
-             is.na(detectionDrivers),
-             is.na(finalTime))))
+    if(all(c(is_null_na(detectionProb),
+             is_null_na(detectionSize),
+             is_null_na(detectionDrivers),
+             is_null_na(finalTime),
+             is_null_na(fixation)
+             )))
         stop("At least one stopping condition should be given.",
              " At least one of detectionProb, detectionSize, detectionDrivers,",
-             " finalTime. Otherwise, we'll run forever.")
+             " finalTime. Otherwise, we'll run until aborted by max.wall.time,",
+             " max.num.tries, and the like.")
+
+    if(AND_DrvProbExit && (is_null_na(detectionProb) || is_null_na(detectionDrivers)))
+        stop("AND_DrvProbExit is TRUE: both of detectionProb and detectionDrivers",
+             " must be non NA.")
+    if(AND_DrvProbExit && !is_null_na(detectionSize)) {
+        warning("With AND_DrvProbExit = TRUE, detectionSize is ignored.")
+        detectionSize <- NA
+    }
+    if(inherits(fp, "fitnessEffects")) {
+        s <- sh <- NULL ## force it soon!
+    }
+
     ## legacies from poor name choices
     typeFitness <- switch(model,
                           "Bozic" = "bozic1",
@@ -467,7 +492,8 @@ oncoSimulIndiv <- function(fp,
         if(model %in% c("Bozic", "Exp") )
             minDetectDrvCloneSz <- 0
         else if (model %in% c("McFL", "McFarlandLog"))
-            minDetectDrvCloneSz <- eFinalMf(initSize, s, detectionDrivers)
+            minDetectDrvCloneSz <- initSize
+        ## minDetectDrvCloneSz <- eFinalMf(initSize, s, detectionDrivers)
         else
             stop("Unknown model")
     }
@@ -484,7 +510,7 @@ oncoSimulIndiv <- function(fp,
     ## No user-visible magic numbers
     ## if(is.null(keepEvery))
     ##     keepEvery <- -9
-    if(is.na(keepEvery)) keepEvery <- -9
+    if(is_null_na(keepEvery)) keepEvery <- -9
 
     
     if( (keepEvery > 0) & (keepEvery < sampleEvery)) {
@@ -499,10 +525,11 @@ oncoSimulIndiv <- function(fp,
     if( (typeFitness == "exp") && (death != 1) )
         warning("Using fitness exp with death != 1")
 
-
-    if(is.na(detectionDrivers)) detectionDrivers <- (2^31) - 1
-    if(is.na(detectionSize)) detectionSize <- Inf
-    if(is.na(finalTime)) finalTime <- Inf
+    if(!is_null_na(detectionDrivers) && (detectionDrivers >= 1e9))
+        stop("detectionDrivers > 1e9; this doesn't seem reasonable")
+    if(is_null_na(detectionDrivers)) detectionDrivers <- (2^31) - 1
+    if(is_null_na(detectionSize)) detectionSize <- Inf
+    if(is_null_na(finalTime)) finalTime <- Inf
     
     
     if(!inherits(fp, "fitnessEffects")) {
@@ -515,12 +542,18 @@ oncoSimulIndiv <- function(fp,
             stop(m)
            
         }
+        if(AND_DrvProbExit) {
+            stop("The AND_DrvProbExit = TRUE setting is invalid",
+                 " with the old poset format.")
+        }
         if(!is.null(muEF))
-            stop("Mutator effects cannot be especified with the old poset format")
+            stop("Mutator effects cannot be specified with the old poset format.")
         if( length(initMutant) > 0)  
             warning("With the old poset format you can no longer use initMutant.",
                     " The initMutant you passed will be ignored.")
-            ## stop("With the old poset, initMutant can only take a single value.")
+        ## stop("With the old poset, initMutant can only take a single value.")
+        if(!is_null_na(fixation))
+            stop("'fixation' cannot be specified with the old poset format.")
         ## Seeding C++ is now much better in new version
         if(is.null(seed) || (seed == "auto")) {## passing a null creates a random seed
             ## name is a legacy. This is really the seed for the C++ generator.
@@ -530,7 +563,7 @@ oncoSimulIndiv <- function(fp,
         if(verbosity >= 2)
             cat(paste("\n Using ", seed, " as seed for C++ generator\n"))
 
-        if(!is.na(detectionProb)) stop("detectionProb cannot be used in v.1 objects")
+        if(!is_null_na(detectionProb)) stop("detectionProb cannot be used in v.1 objects")
         ## if(message.v1)
         ##     message("You are using the old poset format. Consider using the new one.")
    
@@ -576,6 +609,7 @@ oncoSimulIndiv <- function(fp,
                   silent = !verbosity)
         objClass <- "oncosimul"
     } else {
+        s <- sh <- NULL ## force it.
         if(numPassengers != 0)
             warning(paste("Specifying numPassengers has no effect",
                           " when using fitnessEffects objects. ",
@@ -593,6 +627,18 @@ oncoSimulIndiv <- function(fp,
             seed <- 0.0
             if(verbosity >= 2)
                 cat("\n A (high quality) random seed will be generated in C++\n")
+        }
+        if(!is_null_na(fixation)) {
+            if( (!is.list(fixation)) && (!is.vector(fixation))  )
+                stop("'fixation' must be a list or a vector.")
+            if(!(all(unlist(lapply(fixation, is.vector)))))
+                stop("Each element of 'fixation' must be a single element character vector.")
+            if(!(all(unlist(lapply(fixation, class)) == "character")))
+                stop("Each element of 'fixation' must be a single element character vector.")
+            if(!(all( unlist(lapply(fixation, length)) == 1)))
+                stop("Each element of 'fixation' must be a single element character vector.")
+            if(AND_DrvProbExit)
+                stop("It makes no sense to pass AND_DrvProbExit and a fixation list.")
         }
         op <- try(nr_oncoSimul.internal(rFE = fp, 
                                         birth = birth,
@@ -625,7 +671,9 @@ oncoSimulIndiv <- function(fp,
                                         errorHitMaxTries = errorHitMaxTries,
                                         keepPhylog = keepPhylog,
                                         MMUEF = muEF,
-                                        detectionProb = detectionProb),
+                                        detectionProb = detectionProb,
+                                        AND_DrvProbExit = AND_DrvProbExit,
+                                        fixation = fixation),
                   silent = !verbosity)
         objClass <- c("oncosimul", "oncosimul2")
     }
@@ -666,7 +714,7 @@ summary.oncosimul <- function(object, ...) {
         if( (tmp$minDMratio == -99)) tmp$minDMratio <- NA
         if( (tmp$minBMratio == -99)) tmp$minBMratio <- NA
         tmp$OccurringDrivers <- object$OccurringDrivers
-        return(as.data.frame(tmp))
+        return(as.data.frame(tmp, stringsAsFactors = FALSE))
     }
 }
 
@@ -690,9 +738,28 @@ print.oncosimul <- function(x, ...) {
 }
 
 ## I want this to return things that are storable
+## summary.oncosimulpop <- function(object, ...) {
+##     as.data.frame(rbindlist(lapply(object, summary)))
+## }
+
 summary.oncosimulpop <- function(object, ...) {
-    as.data.frame(rbindlist(lapply(object, summary)))
+    tmp <- lapply(object, summary)
+    rm <- which(unlist(lapply(tmp, function(x) (length(x) == 1) && (is.na(x)))))
+    if(length(rm) > 0)
+        if(length(rm) < length(object)) {
+        warning("Some simulations seem to have failed and will be removed",
+                " from the summary. The failed runs are ",
+                paste(rm, collapse = ", "),
+                ".")
+        tmp <- tmp[-rm]
+        } else {
+            warning("All simulations failed.")
+            return(NA)
+        }
+    as.data.frame(rbindlist(tmp))
 }
+
+
 
 print.oncosimulpop <- function(x, ...) {
     cat("\nPopulation of OncoSimul trajectories of",
@@ -1383,8 +1450,17 @@ phylogClone <- function(x, N = 1, t = "last", keepEvents = TRUE) {
         stop("Phylogenetic information is only stored with v >= 2")
     z <- which_N_at_T(x, N, t)
     tG <- x$GenotypesLabels[z] ## only for GenotypesLabels we keep all
-                               ## sample size info at each period
+    ## sample size info at each period
+
+    if( (length(tG) == 1) && (tG == "")) {
+        warning("There never was a descendant of WT")
+    }
+    
     df <- x$other$PhylogDF
+    if(nrow(df) == 0) {
+        warning("PhylogDF has 0 rows: no descendants of initMutant ever appeared.")
+        return(NA)
+    }
     if(!keepEvents) { ## is this just a graphical thing? or not?
         df <- df[!duplicated(df[, c(1, 2)]), ]
     }
@@ -1420,6 +1496,13 @@ plotClonePhylog <- function(x, N = 1, t = "last",
              "very fast, before any clones beyond the initial were ",
              "generated.")
     pc <- phylogClone(x, N, t, keepEvents)
+    ## if(is.na(pc)) {
+    ##     ## This should not be reachable, as caught before
+    ##     ## where we check for nrow of PhylogDF   
+    ##     warning("No clone phylogeny available. Exiting without plotting.")
+    ##     return(NULL)
+    ## }
+        
     l0 <- igraph::layout.reingold.tilford(pc$g)
     if(!timeEvents) {
         plot(pc$g, layout = l0)
@@ -1502,6 +1585,12 @@ get.the.time.for.sample <- function(tmp, timeSample, popSizeSample) {
 
 get.mut.vector <- function(x, timeSample, typeSample,
                            thresholdWhole, popSizeSample) {
+    if(is.null(x$TotalPopSize)) {
+        warning(paste("It looks like this simulation never completed.",
+                      " Maybe it reached maximum allowed limits.",
+                      " You will get NAs"))
+        return(rep(NA, length(x$geneNames)))
+    }
     the.time <- get.the.time.for.sample(x, timeSample, popSizeSample)
     if(the.time < 0) { 
         return(rep(NA, nrow(x$Genotypes)))
@@ -1686,17 +1775,6 @@ oncoSimul.internal <- function(poset, ## restrict.table,
 
 }
 
-eFinalMf <- function(initSize, s, j) {
-    ## Expected final sizes for McF, when K is set to the default.
-    # j is number of drivers
-    ## as it says, with no passengers
-    ## Set B(d) = D(N)
-    K <- initSize/(exp(1) - 1)
-    return(K * (exp( (1 + s)^j) - 1))
-}
-
-
-
 OncoSimulWide2Long <- function(x) {
     ## Put data in long format, for ggplot et al
     
@@ -1819,6 +1897,59 @@ plotShannon <- function(z) {
     box()
     axis(2)
 }
+
+
+
+is_null_na <- function(x) {
+    ## For arguments, if user passes "undefined" or "not set"
+    ## See also http://stackoverflow.com/a/19655909
+    if(is.function(x)) return(FALSE)
+    if( is.null(x) ||
+        ( (length(x) == 1) && (is.na(x)) ) ||
+        ( (length(x) == 1) && (x == "") ) ## careful here
+       )  {
+        return(TRUE)
+    } else {
+        return(FALSE)
+    }
+}
+
+
+## Not used anymore, but left here in case they become useful.
+## Expected numbers at equilibrium under McFarland's
+## eFinalMf <- function(initSize, s, j) {
+##     ## Expected final sizes for McF, when K is set to the default.
+##     # j is number of drivers
+##     ## as it says, with no passengers
+##     ## Set B(d) = D(N)
+##     K <- initSize/(exp(1) - 1)
+##     return(K * (exp( (1 + s)^j) - 1))
+## }
+
+## mcflE <- function(p, s, initSize) {
+##     K <- initSize/(exp(1) - 1)
+##     ## Expected number at equilibrium
+##     return( K * (exp((1 + s)^p) - 1))
+## }
+
+## mcflEv <- function(p, s, initSize) {
+##     ## expects vectors for p and s
+##     K <- initSize/(exp(1) - 1)
+    
+##     ## Expected number at equilibrium
+##     return( K * (exp(prod((1 + s)^p)) - 1))
+## }
+
+
+
+
+
+
+
+
+
+
+
 
 ## simpsonI <- function(x) {
 ##     sx <- sum(x)

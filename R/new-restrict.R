@@ -1,3 +1,4 @@
+
 ## Copyright 2013, 2014, 2015, 2016 Ramon Diaz-Uriarte
 
 ## This program is free software: you can redistribute it and/or modify
@@ -161,7 +162,7 @@ list.of.deps <- function(x) {
             stop("child not unique")
     }
     typeDep <- lookupTypeDep[unique(x$typeDep)]
-    if(any(is.na(typeDep)))
+    if(any(is_null_na(typeDep)))
         stop("typeDep value incorrect. Check spelling.")
     return(list(
         child = unique(x$child),
@@ -1436,7 +1437,9 @@ nr_oncoSimul.internal <- function(rFE,
                                   extraTime,
                                   keepPhylog,
                                   detectionProb,
-                                  MMUEF = NULL ## avoid partial matching, and set default
+                                  AND_DrvProbExit,
+                                  MMUEF = NULL, ## avoid partial matching, and set default
+                                  fixation = NULL ## avoid partial matching
                                   ) {
     if(!inherits(rFE, "fitnessEffects"))
         stop(paste("rFE must be an object of class fitnessEffects",
@@ -1578,6 +1581,28 @@ nr_oncoSimul.internal <- function(rFE,
     ## if( is.null(n2)) n2 <- -9
 
     ## call <- match.call()
+    
+    ## Process the fixed list, if any
+    if(!is_null_na(fixation)) {
+        ng <- namedGenes
+        rownames(ng) <- namedGenes[, "Gene"]
+        ## Usual genotype specification and might allow ordered vectors
+        ## in the future
+        fixation_b <- lapply(fixation, nice.vector.eo, sep = ",")
+        ulf <- unlist(fixation_b)
+        if(any(ulf == ">"))
+            stop("Order effects not allowed (yet?) in fixation.")
+        ulfg <- ng[ulf, 1]
+        if(any(is.na(ulfg)))
+            stop(paste("The 'fixation' list contains genes that are not present",
+                       " in the fitness effects."))
+        ## Sorting here is crucial!!
+        fixation_list <- lapply(fixation_b, function(x) sort(ng[x, 2]))
+    } else {
+        fixation_list <- list()
+    }
+
+    
     return(c(
         nr_BNB_Algo5(rFE = rFE,
                      mu_ = mu,
@@ -1613,7 +1638,9 @@ nr_oncoSimul.internal <- function(rFE,
                      p2 = dpr["p2"],
                      PDBaseline = dpr["PDBaseline"],
                      cPDetect_i= dpr["cPDetect"],
-                     checkSizePEvery = dpr["checkSizePEvery"]),
+                     checkSizePEvery = dpr["checkSizePEvery"],
+                     AND_DrvProbExit = AND_DrvProbExit,
+                     fixation_list = fixation_list),
         Drivers = list(rFE$drv), ## but when doing pops, these will be repeated
         geneNames = list(names(getNamesID(rFE)))
     ))
@@ -1753,8 +1780,8 @@ detectionProbCheckParse <- function(x, initSize, verbosity) {
     default_PDBaseline <- 1.2 * initSize
     default_checkSizePEvery <- 20
     ## No default cPDetect. That is done from p2 and n2 in C++.
-    
-    if((length(x) == 1) && (is.na(x))) {
+    if(is_null_na(x)) {
+    ## if((length(x) == 1) && (is.na(x))) {
         y <- vector()
         y["cPDetect"] <- -9
         y["p2"] <- 9
@@ -1779,18 +1806,18 @@ detectionProbCheckParse <- function(x, initSize, verbosity) {
     }
    
     ## This ain't conditional. If not given, always check
-    if( !is.na(x["cPDetect"]) && (sum(!is.na(x["p2"]), !is.na(x["n2"])) >= 1 ))
+    if( !is_null_na(x["cPDetect"]) && (sum(!is_null_na(x["p2"]), !is_null_na(x["n2"])) >= 1 ))
         stop("Specify only cPDetect xor both of p2 and n2")
-    if( (is.na(x["p2"]) + is.na(x["n2"])) == 1 )
+    if( (is_null_na(x["p2"]) + is_null_na(x["n2"])) == 1 )
         stop("If you pass one of n2 or p2, you must also pass the other. ",
              "Otherwise, we would not know what to do.")
 
-    if(is.na(x["PDBaseline"])) {
+    if(is_null_na(x["PDBaseline"])) {
         x["PDBaseline"] <- default_PDBaseline
         if(verbosity > -1)
             message("\n  PDBaseline set to default value of ", default_PDBaseline, "\n")
         }
-    if(is.na(x["checkSizePEvery"])) {
+    if(is_null_na(x["checkSizePEvery"])) {
         x["checkSizePEvery"] <- default_checkSizePEvery
         if(verbosity > -1)
             message("\n  checkSizePEvery set to default value of ",
@@ -1800,9 +1827,9 @@ detectionProbCheckParse <- function(x, initSize, verbosity) {
     ## If we get here, we checked consistency of whether cPDetect or p2/n2.
     ## Fill up with defaults the missing values
 
-    if(is.na(x["cPDetect"])) {
-        if(is.na(x["p2"])) {
-            if(!is.na(x["n2"])) stop("Eh? no p2 but n2? Bug")
+    if(is_null_na(x["cPDetect"])) {
+        if(is_null_na(x["p2"])) {
+            if(!is_null_na(x["n2"])) stop("Eh? no p2 but n2? Bug")
             x["n2"] <- default_n2
             x["p2"] <- default_p2
             if(verbosity > -1)
@@ -1816,14 +1843,14 @@ detectionProbCheckParse <- function(x, initSize, verbosity) {
     if(x["PDBaseline"] < 0)
         stop("PDBaseline < 0")
     
-    if(!is.na(x["n2"])) {
+    if(!is_null_na(x["n2"])) {
         if(x["n2"] <= x["PDBaseline"])
             stop("n2 <= PDBaseline")
         if(x["p2"] >= 1) stop("p2 >= 1")
         if(x["p2"] <= 0) stop("p2 <= 0")
         x["cPDetect"] <- -9
     } else { ## only if x["cPDetect"] is not NA
-        if(is.na(x["cPDetect"])) stop("eh? you found a bug")## paranoia
+        if(is_null_na(x["cPDetect"])) stop("eh? you found a bug")## paranoia
         x["n2"] <- -9
         x["p2"] <- -9
         if(verbosity > -1)
@@ -1831,6 +1858,51 @@ detectionProbCheckParse <- function(x, initSize, verbosity) {
     }
     return(x)
 }
+
+sampledGenotypes <- function(y, genes = NULL) {
+    ## From a popSample object, or a matrix for that matter,
+    ## show the sampled genotypes and their frequencies
+    if(!is.null(genes)) {
+        cols <- which(colnames(y) %in% genes )
+        y <- y[, cols]
+    }
+    nn <- colnames(y)
+    df <- data.frame(table(
+        apply(y, 1, function(z) paste(nn[as.logical(z)], collapse = ", ") )
+    ))
+    gn <- as.character(df[, 1])
+    gn[gn == ""] <- "WT"
+    df <- data.frame(Genotype = gn, Freq = df[, 2], stringsAsFactors = FALSE)
+    return(df)
+}
+
+
+
+list_g_matches_fixed <- function(x, y) {
+    ## Internal function, for testing the fixation output.
+    ## x and y are vectors
+
+    ## x is the set of output genotypes, y the set of fixed
+    ## genotypes/subset of genotypes.
+
+    ## Yes, this function has tests too in test.fixation.R
+    
+    ## All genotypes in x satisfy that they are supersets of at least one
+    ## in y? That is true if, for every element in x, at least one y in
+    ## that x.
+
+    if(is.list(y)) y <- unlist(y)
+    
+    y.nice <- lapply(y, nice.vector.eo, sep = ",")
+    x.nice <- lapply(x, nice.vector.eo, sep = ",")
+
+    fu <- function(u, y.nice)
+        any(unlist(lapply(y.nice, function(z) all(z %in% u))))
+
+    return(all(unlist(lapply(x.nice, fu, y.nice))))
+
+}
+
 
 
 ## emptyFitnessEffects <- function() {

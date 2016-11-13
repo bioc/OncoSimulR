@@ -835,9 +835,161 @@ test_that("old format: at most 64 genes", {
 
 
 
+test_that("samplePop deals with failures in simuls", {
+    
+    fe <- allFitnessEffects(noIntGenes = c(-0.1, -0.2, -0.3))
+    uu <- oncoSimulIndiv(fe, max.wall.time = 0.2, max.num.tries = 5)
+    uup <- oncoSimulPop(4, fe, max.wall.time = 0.2, max.num.tries = 5)
+    expect_warning(uus <- samplePop(uu),
+                   "It looks like this simulation never completed",
+                   fixed = TRUE)
+    expect_warning(uups <- samplePop(uup),
+                   "It looks like this simulation never completed",
+                   fixed = TRUE)
+    ## And it works when only some fail
+    
+    fe2 <- allFitnessEffects(noIntGenes = c(0.1, 0.2, 0.3))
+    uu2 <- oncoSimulIndiv(fe2)
+    u3 <- list(uu, uu2)
+    class(u3) <- "oncosimulpop"
+    expect_warning(uu3ps <- samplePop(u3),
+                   "It looks like this simulation never completed",
+                   fixed = TRUE)
+})
 
 
 
+test_that("summary.oncosimulepop deals with failures in simuls", {
+    
+    fe <- allFitnessEffects(noIntGenes = c(-0.1, -0.2, -0.3))
+    uup <- oncoSimulPop(4, fe, max.wall.time = 0.2, max.num.tries = 5)
+    expect_warning(uus <- summary(uup),
+                   "All simulations failed",
+                   fixed = TRUE)
+    ## And it works when only some fail
+    fe2 <- allFitnessEffects(noIntGenes = c(0.1, 0.2, 0.3))
+    uu2 <- oncoSimulPop(2, fe2)
+    uu <- oncoSimulPop(2, fe, max.wall.time = 0.2, max.num.tries = 5)
+    u3 <- c(uu, uu2)
+    class(u3) <- "oncosimulpop"
+    expect_warning(uu3ps <- summary(u3),
+                   "Some simulations seem to have failed",
+                   fixed = TRUE)
+})
+
+
+test_that("AND_DrvProbExit warnings and errors work" , {
+    fe <- allFitnessEffects(noIntGenes = c("A" = 0.1, "B" = 0.2, "C" = 0.3),
+                        drvNames = c("A", "B", "C"))
+
+    expect_warning(u <- oncoSimulIndiv(fe, detectionDrivers = 1,
+                        detectionProb = "default",
+                        AND_DrvProbExit = TRUE),
+                   "With AND_DrvProbExit = TRUE, detectionSize is ignored",
+                   fixed = TRUE)
+
+    expect_error(u <- oncoSimulIndiv(fe, detectionDrivers = NA,
+                                     detectionProb = "default",
+                                     AND_DrvProbExit = TRUE),
+                 "AND_DrvProbExit is TRUE: both of detectionProb",
+                 fixed = TRUE)
+
+
+    data(examplePosets)
+    p701 <- examplePosets[["p701"]]
+    expect_error(u <- oncoSimulIndiv(p701, detectionDrivers = 1,
+                                     detectionProb = "default",
+                                     detectionSize = NA,
+                                     AND_DrvProbExit = TRUE),
+                 "The AND_DrvProbExit = TRUE setting is invalid with the old poset",
+                 fixed = TRUE)
+}
+)
+
+
+test_that("AND_DrvProbExit exercising and test it works" , {
+    ## RNGkind("Mersenne-Twister")
+    ## set.seed(1)
+
+    fe <- allFitnessEffects(noIntGenes = c("A" = 0.1, "B" = 0.2, "C" = 0.3),
+                        drvNames = c("A", "B"))
+    ## set.seed(1)
+    u0 <- oncoSimulIndiv(fe, detectionDrivers = 1,
+                        detectionProb = "default",
+                        AND_DrvProbExit = FALSE,
+                        detectionSize = NA)
+    ## set.seed(1)
+    u <- oncoSimulIndiv(fe, detectionDrivers = 1,
+                        detectionProb = "default",
+                        AND_DrvProbExit = TRUE,
+                        detectionSize = NA)
+    expect_true(u$TotalPresentDrivers >= 1)
+    ## set.seed(1)
+    u2 <- oncoSimulIndiv(fe, detectionDrivers = 1,
+                        detectionProb = "default",
+                        AND_DrvProbExit = TRUE,
+                        minDetectDrvCloneSz = 500,
+                        detectionSize = NA)
+    expect_true(u2$TotalPresentDrivers >= 1)
+    ## set.seed(2)
+
+    ## set.seed(2)
+    ## m00 <- oncoSimulIndiv(fe, detectionDrivers = NA, model = "McFL",
+    ##                     detectionProb = "default",
+    ##                     AND_DrvProbExit = FALSE,
+    ##                     detectionSize = NA,
+    ##                     initMutant = "C")
+    ## set.seed(2)
+    m <- oncoSimulIndiv(fe, detectionDrivers = 1, model = "McFL",
+                        detectionProb = "default",
+                        AND_DrvProbExit = TRUE,
+                        detectionSize = NA)
+    expect_true(m$TotalPresentDrivers >= 1)
+    ## set.seed(2)
+    m1 <- oncoSimulIndiv(fe, detectionDrivers = 1, model = "McFL",
+                        detectionProb = "default",
+                        AND_DrvProbExit = TRUE,
+                        minDetectDrvCloneSz = 10,
+                        detectionSize = NA)
+    expect_true(m1$TotalPresentDrivers >= 1)
+    m1p <- m1$pops.by.time[, -c(1, 2), drop = FALSE]
+    expect_true(sum(m1p[nrow(m1p), , drop = FALSE]) >= 10)
+    ## set.seed(2)
+    m2 <- oncoSimulIndiv(fe, detectionDrivers = 1, model = "McFL",
+                        detectionProb = "default",
+                        AND_DrvProbExit = TRUE,
+                        minDetectDrvCloneSz = 100,
+                        detectionSize = NA)
+    expect_true(m2$TotalPresentDrivers >= 1)
+    m2p <- m2$pops.by.time[, -c(1, 2), drop = FALSE]
+    expect_true(sum(m2p[nrow(m2p), , drop = FALSE]) >= 100)
+    ## set.seed(2)
+    ## slow
+    ## m3 <- oncoSimulIndiv(fe, detectionDrivers = 1, model = "McFL",
+    ##                     detectionProb = "default",
+    ##                     AND_DrvProbExit = TRUE,
+    ##                     minDetectDrvCloneSz = 1200,
+    ##                     detectionSize = NA)
+    m3 <- oncoSimulIndiv(fe, detectionDrivers = 1, model = "McFL",
+                         detectionProb = "default",
+                         extraTime = 3,
+                         AND_DrvProbExit = TRUE,
+                         minDetectDrvCloneSz = 100,
+                         detectionSize = NA)
+    expect_true(m3$TotalPresentDrivers >= 1)
+    m3p <- m3$pops.by.time[, -c(1, 2), drop = FALSE]
+    expect_true(sum(m3p[nrow(m3p), , drop = FALSE]) >= 100)
+    m3 <- oncoSimulIndiv(fe, detectionDrivers = 1, model = "McFL",
+                         detectionProb = "default",
+                         extraTime = 10,
+                         AND_DrvProbExit = TRUE,
+                         minDetectDrvCloneSz = 100,
+                         detectionSize = NA)
+    expect_true(m3$TotalPresentDrivers >= 1)
+    m3p <- m3$pops.by.time[, -c(1, 2), drop = FALSE]
+    expect_true(sum(m3p[nrow(m3p), , drop = FALSE]) >= 100)
+}
+)
 
 
 cat(paste("\n Ending oncoSimulIndiv-miscell tests", date(), "\n"))

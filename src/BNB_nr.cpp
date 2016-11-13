@@ -228,6 +228,8 @@ void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
 					const double& checkSizePEvery,
 					double& nextCheckSizeP,
 					std::mt19937& ran_gen,
+					const bool& AND_DrvProbExit,
+					const std::vector<std::vector<int> >& fixation_l,
 					const double& fatalPopSize = 1e15) {
   // Fill out, but also compute totPopSize
   // and return sample summaries for popsize, drivers.
@@ -254,7 +256,38 @@ void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
   }
   lastMaxDr = max_ndr;
 
+  // Until fixation done here. Recall we use an OR operation for exiting
+  // below.  Could be added to loop above.
+  // And we call allGenesinGenotype also above, inside getGenotypeDrivers.
+  // So room for speed ups?
   
+  // Since we convert each genotype to a sorted allGenesinGenotype, iterate
+  // over that first. Add that pop size if the combination is present in genotype.
+  bool fixated = false;
+  if(totPopSize > 0) { // Avoid silly things
+    if( fixation_l.size() ) {
+      std::vector<double> popSize_fixation(fixation_l.size());
+      for(size_t i = 0; i < popParams.size(); ++i) {
+	std::vector<int> thisg = allGenesinGenotype(Genotypes[i]);
+	for(size_t fc = 0; fc != popSize_fixation.size(); ++fc) {
+	  // Yes, fixation_l is sorted in R.
+	  if(std::includes(thisg.begin(), thisg.end(),
+			   fixation_l[fc].begin(), fixation_l[fc].end()) ) {
+	    popSize_fixation[fc] += popParams[i].popSize;
+	  }
+	}
+      }
+      // Any fixated? But avoid trivial of totPopSize of 0!
+      // Now check of > 0 is redundant as we check totPopSize > 0
+      double max_popSize_fixation =
+	*std::max_element(popSize_fixation.begin(), popSize_fixation.end());
+      if( (max_popSize_fixation > 0 ) &&
+	  (max_popSize_fixation == totPopSize)) {
+	fixated = true;
+      }
+    }
+  }
+    
   if (keepEvery < 0) {
     storeThis = false;
   } else if( currentTime >= (lastStoredSample + keepEvery) ) {
@@ -265,6 +298,7 @@ void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
     simulsDone = true;
   }
 
+  
   // FIXME
   // this is the usual exit condition
   // (totPopSize >= detectionSize) ||
@@ -287,28 +321,64 @@ void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
   } else {
     checkSizePNow = false;
   }
-  
-  if(extraTime > 0) {
-    if(done_at <  0) {
-      if( (totPopSize >= detectionSize) ||
-	  ( (lastMaxDr >= detectionDrivers) &&
-	    (popSizeOverDDr >= minDetectDrvCloneSz) ) ||
-	  ( checkSizePNow &&
-	    detectedSizeP(totPopSize, cPDetect, PDBaseline, ran_gen))) {
-	done_at = currentTime + extraTime;
+
+
+  if(AND_DrvProbExit) {
+    // The AND of detectionProb and drivers
+    // fixated plays no role here, and cannot be passed from R
+    if(extraTime > 0) {
+      if(done_at <  0) {
+	if( (lastMaxDr >= detectionDrivers) &&
+	    (popSizeOverDDr >= minDetectDrvCloneSz) &&
+	    checkSizePNow  &&
+	    detectedSizeP(totPopSize, cPDetect, PDBaseline, ran_gen) ) {
+	  done_at = currentTime + extraTime;
+	}
+      } else if (currentTime >= done_at) {
+  	simulsDone = true;
+  	reachDetection = true; 
       }
-    } else if (currentTime >= done_at) {
-	simulsDone = true;
-	reachDetection = true; 
+    } else if( (lastMaxDr >= detectionDrivers) &&
+	       (popSizeOverDDr >= minDetectDrvCloneSz) &&
+	       checkSizePNow  &&
+	       detectedSizeP(totPopSize, cPDetect, PDBaseline, ran_gen) ) {
+      simulsDone = true;
+      reachDetection = true; 
+    }
+  } else {
+    // The usual OR mechanism of each option
+    if(extraTime > 0) {
+      if(done_at <  0) {
+	if( (fixated) ||
+	    (totPopSize >= detectionSize) ||
+	    ( (lastMaxDr >= detectionDrivers) &&
+	      (popSizeOverDDr >= minDetectDrvCloneSz) ) ||
+	    ( checkSizePNow  &&
+	      detectedSizeP(totPopSize, cPDetect, PDBaseline, ran_gen))) {
+	  done_at = currentTime + extraTime;
+	}
+      } else if (currentTime >= done_at) {
+  	simulsDone = true;
+  	reachDetection = true; 
       }
-  } else if( (totPopSize >= detectionSize) ||
-	     ( (lastMaxDr >= detectionDrivers) &&
-	       (popSizeOverDDr >= minDetectDrvCloneSz) ) ||
-	     ( checkSizePNow &&
-	       detectedSizeP(totPopSize, cPDetect, PDBaseline, ran_gen)) ) {
-    simulsDone = true;
-    reachDetection = true; 
+    } else if( (fixated) ||
+	       (totPopSize >= detectionSize) ||
+	       ( (lastMaxDr >= detectionDrivers) &&
+		 (popSizeOverDDr >= minDetectDrvCloneSz) ) ||
+	       ( checkSizePNow  &&
+		 detectedSizeP(totPopSize, cPDetect, PDBaseline, ran_gen)) ) {
+      simulsDone = true;
+      reachDetection = true; 
+    }
   }
+
+  
+  // if( checkSizePNow && (lastMaxDr >= detectionDrivers) &&
+  // 	       detectedSizeP(totPopSize, cPDetect, PDBaseline, ran_gen) )  {
+  //   simulsDone = true;
+  //   reachDetection = true; 
+  // }
+  
   
   if(totPopSize >= fatalPopSize) {
     Rcpp::Rcout << "\n\totPopSize > " << fatalPopSize
@@ -736,7 +806,9 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
 			const std::vector<int>& full2mutator,
 			const double& cPDetect,
 			const double& PDBaseline,
-			const double& checkSizePEvery) {
+			const double& checkSizePEvery,
+			const bool& AND_DrvProbExit,
+			const std::vector< std::vector<int> >& fixation_l) {
   
   double nextCheckSizeP = checkSizePEvery;
   const int numGenes = fitnessEffects.genomeSize;
@@ -1566,7 +1638,9 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
 					 PDBaseline,
 					 checkSizePEvery,
 					 nextCheckSizeP,
-					 ran_gen); //keepEvery is for thinning
+					 ran_gen,
+					 AND_DrvProbExit,
+					 fixation_l); //keepEvery is for thinning
       if(verbosity >= 3) {
 	Rcpp::Rcout << "\n popParams.size() before sampling " << popParams.size() 
 		  << "\n totPopSize after sampling " << totPopSize << "\n";
@@ -1649,7 +1723,9 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 			double p2,
 			double PDBaseline,
 			double cPDetect_i,
-			double checkSizePEvery) {
+			double checkSizePEvery,
+			bool AND_DrvProbExit,
+			Rcpp::List fixation_i) {
   // double cPDetect){
   // double n2,
   // double p2,
@@ -1717,6 +1793,13 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
     DP2(muEF.genomeSize);
     throw std::logic_error("full2mutator 0 with mutatorEffects.genomesize != 0");
   }
+
+  // fixation: run until some genotype combinations fixed
+  std::vector < std::vector<int> > fixation_l(fixation_i.size());
+  if( fixation_i.size() != 0 ) {
+    fixation_l = list_to_vector_of_int_vectors(fixation_i);
+  }
+
   
   bool runAgain = true;
   bool reachDetection = false;
@@ -1797,6 +1880,10 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   
   double currentTime = 0;
   int iter = 0;
+
+  // bool AND_DrvProbExit = ( (cpDetect >= 0) &&
+  // 			     (detectionDrivers < 1e9) &&
+  // 			     (detectionSize < std::numeric_limits<double>::infinity()));
   while(runAgain) {
 
     if(numRuns >= maxNumTries) {
@@ -1872,7 +1959,9 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 		  full2mutator,
 		  cPDetect,
 		  PDBaseline,
-		  checkSizePEvery);
+		  checkSizePEvery,
+		  AND_DrvProbExit,
+		  fixation_l);
       ++numRuns;
       forceRerun = false;
     } catch (rerunExcept &e) {

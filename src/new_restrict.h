@@ -215,6 +215,7 @@ std::vector<double> evalGenotypeFitness(const Genotype& ge,
 
 fitnessEffectsAll convertFitnessEffects(Rcpp::List rFE);
 std::vector<int> getGenotypeDrivers(const Genotype& ge, const std::vector<int>& drv);
+std::vector<int> allGenesinGenotype(const Genotype& ge);
 void print_Genotype(const Genotype& ge);
 
 fitness_as_genes fitnessAsGenes(const fitnessEffectsAll& fe);
@@ -254,6 +255,6 @@ double set_cPDetect(const double n2, const double p2,
 bool detectedSizeP(const double n, const double cPDetect,
 		   const double PDBaseline, std::mt19937& ran_gen);
 
-
+std::vector < std::vector<int> > list_to_vector_of_int_vectors(Rcpp::List vlist);
 #endif
 

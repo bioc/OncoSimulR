@@ -270,8 +270,11 @@ beyond the the previous version (and, thus, also the TPT of
 effects in other general forward genetic simulators such as FFPopSim
 [@Zanini2012], and some that, to our knowledge (e.g., order effects)
 are not available from any genetics simulator. In addition, the
-"lego approach" to flexibly combine different fitness specifications
-is also unique.
+"Lego system" to flexibly combine different fitness specifications
+is also unique; by "Lego system" I mean that we can combine
+different pieces and blocks, similarly to what we do with Lego
+bricks. (I find this an intuitive and very graphical analogy which I
+have copied from @Hothorn_2006; @Hothorn_2008).
 
 
 
@@ -508,7 +511,9 @@ plot(ep2, show = "genotypes", xlim = c(1000, 8000),
 ## How long does it take? How fast is OncoSimulR? How much space do the return objects take? {#timings}
 
 
-How long simulations take depend on several factors:
+How long simulations take depend on several factors. This section
+gives a quick view. Longer examples and more detailed comments are
+provided in section \@ref(moretimings).
 
 
 * Your hardware, of course.
@@ -3385,6 +3390,27 @@ evalAllGenotypes(od, order = FALSE, addwt = TRUE)
 ``` 
 
 
+We could alternatively have specified fitness either directly
+specifying the fitness of each genotype or specifying epistatic
+effects. Let us use the second approach:
+
+```{r}
+
+u <- 0.2; i <- -0.02; vi <- 0.6; ui <- uv <- -Inf
+od2 <- allFitnessEffects(
+    epistasis = c("u" = u,  "u:i" = ui,
+                  "u:v" = uv, "i" = i,
+                  "v:-i" = -Inf, "v:i" = vi))
+evalAllGenotypes(od, addwt = TRUE)
+
+```
+
+We will return to this model when we explain the usage of `fixation`
+for stopping the simulations (see \@{fixation}).
+
+
+
+
 ## Weissman et al., 2009 {#weissmanex}
 In their figure 1a, @Weissman2009 present this model
 (actual numeric values are set arbitrarily)
@@ -3405,6 +3431,8 @@ segments(c(1, 2), c(1, 0.95),
 ## text(1, 1, "wt", pos = 4)
 ## text(1.2, 1.2, "A", pos = 2)
 ## text(1.4, 1.2, "B", pos = 2)
+
+
 ```
 
 where the ``1" and ``2" refer to the total number of mutations in two
@@ -3742,14 +3770,20 @@ multiple simulations in \@ref(sample).
     mechanism, where the probability of "detecting the tumor" increases
     with population size; this is explained below (\@ref(detectprob)) and
     is controlled by argument `detectionProb`.
+	+ A gene or gene combination among those listed in `fixation`
+    becomes fixed in the population (i.e., has a frequency is 1)
+    (see details in (\@ref(fixation)). 
   
   
     As we exit as soon as any of the exiting conditions is reached,
-    if you only care about one condition, set the other to `NA`.
+    if you only care about one condition, set the other to `NA` (see
+    also section \@ref(anddrvprob)).
+	
 
 * **`onlyCancer = FALSE`**. A simulation will run only once, and
   will exit as soon as any of the above conditions are met or as soon as
   the total population size becomes zero or we reach `finalTime`.
+
 
 
 
@@ -3857,7 +3891,7 @@ not reach a large size, it did not accumulate drivers, etc).
 
 
 
-### Stochastic detection mechanism: "detectionProb"  {#detectprob}
+## Stochastic detection mechanism: "detectionProb"  {#detectprob}
 
 This is the process that is controlled by the argument
 `detectionProb`. Here the probability of tumor detection increases
@@ -3982,6 +4016,106 @@ in \@ref(s-cbn1) and \@ref(mcf5070), with the default arguments.
 <!-- % meaning.  -->
 
 
+## Stochastic detection mechanism and minimum number of drivers {#anddrvprob}
+
+We said above that we exit as soon as any of the conditions is
+reached (i.e., we use an OR operation over the exit
+conditions). There is a special exception to this porcedure: if you
+set `AND_DrvProbExit = TRUE`, both the number of drivers and the
+`detectionProb` mechanism condition must fulfilled. This means that
+the `detectionProb` mechanism not assessed unless the
+`detectionDrivers` condition is. Using `AND_DrvProbExit = TRUE`
+allows to run simulations and ensure that all of the returned
+simulations will have at least some cells with the number of drivers
+as specified by `detectionDrivers`. Note, though, that this does not
+guarantee that when you sample the population, all those drivers
+will be detected (as this depends on the actual proportion of cells
+with the drivers and the settings of `samplePop`).
+
+
+
+## Fixation of genes/gene combinations with Ochs and Desai example {#fixation}
+
+In some cases we might be interested in running simulations until a
+particular set of genes, or gene combinations, reaches
+fixation. This exit condition might be more relevant than some of
+the above in many non-cancer-related evolutionary genetics
+scenarios.
+
+Simulations will stop as soon as any of the genes or gene
+combinations in the vector (or list) `fixation` reaches a frequency
+of 1.  These gene combinations might have non-zero intersection
+(i.e., they might share genes), and those genes need not be
+drivers. If we want simulations to only stop when fixation of those
+genes/gene combinations is reached, we will set all other stopping
+conditions to `NA`. It is, of course, up to you to ensure that those
+stopping conditions are reasonable (that they can be reached) and to
+use, or not, `finalTime`; otherwise, simulations will eventually
+abort (e.g., when `max.wall.time` or `max.num.tries` are
+reached). Since we are asking for fixation, the `Exp` or `Bozic`
+models will often not be appropriate here; instead, models with
+competition and limited population size such as `McFL` are more
+appropriate.
+
+
+We return here to the example from section \@(ochsdesai). 
+
+```{r}
+u <- 0.2; i <- -0.02; vi <- 0.6; ui <- uv <- -Inf
+od2 <- allFitnessEffects(
+    epistasis = c("u" = u,  "u:i" = ui,
+                  "u:v" = uv, "i" = i,
+                  "v:-i" = -Inf, "v:i" = vi))
+```
+
+Ochs and Desai explain that "Each simulated population was evolved
+until either the uphill genotype or valley-crossing genotype fixed."
+(see @Ochs2015, p.2, section "Simulations"). We will do the same
+here.  We specify that we want to end the simulation when either the
+"u" or the "v, i" genotypes have reached fixation, by passing those
+genotype combinations as the `fixation` argument (in this example
+using `fixation = c("u", "v")` would have been equivalent, since the
+"v" genotype has fitness of 0).
+
+
+We want to be explicit that fixation will be the one and only
+condition for ending the simulations, and thus we set arguments
+`detectionDrivers`, `finalTime`, `detectionSize` and `detectionProb`
+explicitly to `NA`. (We set the number of repetitions only to 50 for
+the sake of speed when creating the vignette).
+
+
+```{r simul-ochs}
+initS <- 20
+od100 <- oncoSimulPop(50, od2,
+                      fixation = c("u", "v, i"),
+                      model = "McFL",
+                      mu = 1e-4,
+                      detectionDrivers = NA,
+                      finalTime = NA,
+                      detectionSize = NA,
+                      detectionProb = NA,
+                      onlyCancer = TRUE,
+                      initSize = initS, 
+                      mc.cores = 2) 
+```
+
+What is the frequency of each genotype among the simulations? (or,
+what is the frequency of fixation of each genotype?)
+
+```{r ochs-freq-genots}
+sampledGenotypes(samplePop(od100))                      
+```
+
+Note the very large variability in reaching fixation (we show here
+the summary from only 20 simulations)
+```{r sum-simul-ochs}
+head(summary(od100)[, c(1:3, 8:9)], n = 20)
+```
+
+
+
+
 ## Bauer's example again {#bauer2} 
 
 <!-- Cannot write the correct Bauer's example, because conversion fails -->
@@ -4065,8 +4199,8 @@ mcf1s <-  oncoSimulIndiv(mcf1,
                          model = "McFL", 
                          mu = 1e-7,
                          detectionProb = "default",
-                         detectionSize = 1e20, 
-                         detectionDrivers = 9999,
+                         detectionSize = NA, 
+                         detectionDrivers = NA,
                          sampleEvery = 0.02,
                          keepEvery = 8,
                          initSize = 2000,
@@ -5027,6 +5161,31 @@ c$ and $c > d$ both  give you a genotype with "c" and "d" mutated, and
 thus in the output you can have two columns with both genes mutated.
 
 
+## Doesn't the BNB algorithm require small mutation rates for it to be advantageous? {#bnbmutation}
+
+As discussed in the original paper by @Mather2012 (see also their
+supplementary material), the BNB algorithm can achieve considerable
+speed advantages relative to other algorithms especially when
+mutation events are rare relative to birth and death events; the
+larger the mutation rate, the smaller the gains compared to other
+algorithms. As mentioned in their supplementary material (see p.5)
+"Note that the 'cost' of each step in BNB is somewhat higher than in
+SSA [SSA is the original Gillespie Stochastic Simulation Algorithm]
+since it requires generation of several random numbers as compared
+to only two uniform random numbers for SSA. However this cost
+increase is small compared with significant benefits of jumping over
+birth and death reactions for the case of rare mutations."
+
+Since the earlier versions, OncoSimulR has provided information to
+assess these issues. The output of function *`oncoSimulIndiv`*
+includes a list called *"other"* that itself includes two lists
+named *"minDMratio"* and *"minBMratio"*, the smallest ratio, over
+all simulations, of death rate to mutation rate or birth rate to
+mutation rate, respectively. As explained above, the BNB algorithm
+thrives when those are large.
+
+
+
 
 <!-- %% in an attempt to explain it, this just makes it too confusing. The -->
 <!-- %% above is enough. -->
@@ -5634,11 +5793,28 @@ that function is optimized for other uses. This might change in the future.
 
 # Generating random fitness landscapes {#gener-fit-land}
 
-It is possible to generate mappings of genotype to fitness using the
-function *`rfitness`* that allows you to use from a pure House of
-Cards model to a purely additive model. I have followed
-@szendro_quantitative_2013, @franke_evolutionary_2011 and model
-fitness as
+In most of the examples seen above, we have fully specified the
+fitness of the different genotypes (either by providing directly the
+full mapping genotyeps to fitness, or by providing that mapping by
+specifying the effects of the different gene combinations). In some
+cases, however, we might want to specify a particular model that
+generates the fitness landscape, and then have fitnesses be random
+variables obtained under this model. In this random fitness
+landscape the fitness of the genotypes is a random variable
+generated under some specific model.  Random fitness landscapes are
+used extensively, for instance, to understand the evolutionary
+consequences of different types of epistatic interactions (e.g.,
+@szendro_quantitative_2013, @franke_evolutionary_2011) and there are
+especially developed tools for plotting and analyzing random fitness
+landscapes (e.g., @brouillet_magellan:_2015).
+
+
+
+With OncoSimulR it is possible to generate mappings of genotype to
+fitness using the function *`rfitness`* that allows you to use from
+a pure House of Cards model to a purely additive model. I have
+followed @szendro_quantitative_2013, @franke_evolutionary_2011 and
+model fitness as
 
 <!-- $$ -->
 <!--   f_i = -c d(i, reference) + x_i -->
@@ -5697,6 +5873,10 @@ oncoSimulIndiv(allFitnessEffects(genotFitness = r1))
 <!-- % dev.off() -->
 
 <!-- % @  -->
+
+
+<!-- Uncomment when ready. O.w. confusing. -->
+<!-- # Additional comments and examples about time, size, and simulation limits {#moretiming} -->
 
 # Using v.1 posets and simulations {#v1}
 

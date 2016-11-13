@@ -40,6 +40,8 @@
                 errorHitMaxTries = TRUE,
                 verbosity = 0,
                 initMutant = NULL,
+                AND_DrvProbExit = FALSE,
+                fixation = NULL,
                 seed = NULL)
 
 oncoSimulPop(Nindiv, fp, model = "Exp", numPassengers = 0, mu = 1e-6,
@@ -61,6 +63,8 @@ oncoSimulPop(Nindiv, fp, model = "Exp", numPassengers = 0, mu = 1e-6,
                 errorHitWallTime = TRUE,
                 errorHitMaxTries = TRUE,
                 initMutant = NULL,
+                AND_DrvProbExit = FALSE,
+                fixation = NULL,
                 verbosity = 0,
                 mc.cores = detectCores(),
                 seed = "auto")
@@ -108,6 +112,8 @@ oncoSimulSample(Nindiv,
                 typeSample = "whole",
                 thresholdWhole = 0.5,
                 initMutant = NULL,
+                AND_DrvProbExit = FALSE,
+                fixation = NULL,
                 verbosity  = 1,
                 showProgress = FALSE,
                 seed = "auto")
@@ -289,22 +295,7 @@ This option can not be used with v.1 objects.
 
 }
 
-\item{s}{
-  Selection coefficient for drivers. 
-    Only relevant if using a poset as this is included in the
-  fitnessEffects object.
-}
-\item{sh}{
-  Selection coefficient for drivers with restrictions not satisfied. A
-  value of 0 means there are no penalties for a driver appearing in a
-  clone when its restrictions are not satisfied.
 
-  To specify "sh=Inf" (in Diaz-Uriarte, 2015) use sh = -1.
-
-  Only relevant if using a poset as this is included in the
-  fitnessEffects object.
-
-}
 \item{K}{
   Initial population equilibrium size in the McFarland models.
 
@@ -497,10 +488,6 @@ of \code{sampleEvery} that is larger than or equal to \code{keepEvery}.
 }
 
 
-
-
-
-
 \item{verbosity}{ If 0, run silently. Iincreasing values of verbosity
   provide progressively more information about intermediate steps,
   possible numerical notes/warnings from the C++ code, etc. Values less
@@ -528,6 +515,40 @@ of \code{sampleEvery} that is larger than or equal to \code{keepEvery}.
 
 \item{showProgress}{If TRUE, provide information, during exection,
 of the individual done, and the number of attempts and time used.}
+
+\item{AND_DrvProbExit}{If TRUE, cancer will be considered to be reached
+  if both the \code{detectionProb} mechanism and \code{detectionDrivers}
+  are satisfied. This is and AND, not an OR condition. Using this option
+  with \code{fixation} is not allowed (as it does not make much sense).}
+
+\item{fixation}{If non-NULL, a list or a vector, where each element of
+  is a string with a gene or a gene combination. Simulations will stop
+  as soon as any of the genes or gene combinations are fixed (i.e.,
+  reach frequency of one). If you pass gene combinations, separate genes
+  with commas (not '>'); this means order is not (yet?)  supported. This
+  way of specifying gene combinations is the same as the one used for
+  \code{initMutant} and \code{\link{evalGenotype}}.
+
+  Using this option with \code{AND_DrvProbExit} is not allowed (as it
+  does not make much sense). This option is not allowed either with the
+  old v.1 specification.}
+
+\item{s}{
+  Selection coefficient for drivers. 
+    Only relevant if using a poset as this is included in the
+  fitnessEffects object. This will eventually be deprecated.
+}
+\item{sh}{
+  Selection coefficient for drivers with restrictions not satisfied. A
+  value of 0 means there are no penalties for a driver appearing in a
+  clone when its restrictions are not satisfied.
+
+  To specify "sh=Inf" (in Diaz-Uriarte, 2015) use sh = -1.
+
+  Only relevant if using a poset as this is included in the
+  fitnessEffects object. This will eventually be deprecated.
+
+}
 
 \item{seed}{The seed for the C++ PRNG. You can pass a value. If you set
   it to NULL, then a seed will be generated in R and passed to C++. If
@@ -612,13 +633,13 @@ of the individual done, and the number of attempts and time used.}
 
   Detection of cancer can be a deterministic process, where cancer is
   always detected (and, thus, simulation ended) when certain conditions
-  are met (\code{detectionSize},
-  \code{detectionDrivers}). Alternatively, it can be stochastic process
-  where probability of detection depends on size. Every so often (see
-  below) we assess population size, and detect cancer or not
-  probabilistically (comparing the probability of detection for that
-  size with a random uniform number). Probability of detection changes
-  with population size according to the function
+  are met (\code{detectionSize}, \code{detectionDrivers},
+  \code{fixation}). Alternatively, it can be stochastic process where
+  probability of detection depends on size. Every so often (see below)
+  we assess population size, and detect cancer or not probabilistically
+  (comparing the probability of detection for that size with a random
+  uniform number). Probability of detection changes with population size
+  according to the function
   
   \deqn{ 1 - e^{-cPDetect (populationsize - PDBaseline)}}.
 
