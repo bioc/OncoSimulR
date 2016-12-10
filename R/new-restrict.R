@@ -1873,9 +1873,16 @@ sampledGenotypes <- function(y, genes = NULL) {
     gn <- as.character(df[, 1])
     gn[gn == ""] <- "WT"
     df <- data.frame(Genotype = gn, Freq = df[, 2], stringsAsFactors = FALSE)
+    attributes(df)$ShannonI <- shannonI(df$Freq)
+    class(df) <- c("sampledGenotypes", class(df))
     return(df)
 }
 
+print.sampledGenotypes <- function(x, ...) {
+    print.data.frame(x, ...)
+    cat("\n Shannon's diversity (entropy) of sampled genotypes: ")
+    cat(attributes(x)$ShannonI, "\n")
+}
 
 
 list_g_matches_fixed <- function(x, y) {

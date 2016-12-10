@@ -258,12 +258,26 @@ oncoSimulSample <- function(Nindiv,
     }
 }
 
+add_noise <- function(x, properr) {
+    if(properr <= 0) {
+        return(x)
+    }
+    else {
+        if(properr > 1)
+            stop("Proportion with error cannot be > 1")
+        nn <- prod(dim(x))
+        flipped <- sample(nn, round(nn * properr))
+        x[flipped] <- as.integer(!x[flipped])
+        return(x)
+    }
+}
 
 samplePop <- function(x, timeSample = "last",
                       typeSample = "whole",
                       thresholdWhole = 0.5,
                       geneNames = NULL,
-                      popSizeSample = NULL) {
+                      popSizeSample = NULL,
+                      propError = 0) {
     ## timeSample <- match.arg(timeSample)
     gN <- geneNames
     
@@ -301,6 +315,9 @@ samplePop <- function(x, timeSample = "last",
         nrow(z), " subjects and ",
             ncol(z), " genes.\n")
 
+    if(propError > 0) {
+        z <- add_noise(z, propError)
+    }
     if(!is.null(gN)) {
         colnames(z) <- gN
     } else {
@@ -530,7 +547,8 @@ oncoSimulIndiv <- function(fp,
     if(is_null_na(detectionDrivers)) detectionDrivers <- (2^31) - 1
     if(is_null_na(detectionSize)) detectionSize <- Inf
     if(is_null_na(finalTime)) finalTime <- Inf
-    
+
+    if(is_null_na(sampleEvery)) stop("sampleEvery cannot be NULL or NA")
     
     if(!inherits(fp, "fitnessEffects")) {
         if(any(unlist(lapply(list(fp, 
@@ -694,18 +712,24 @@ oncoSimulIndiv <- function(fp,
 }
 
 summary.oncosimul <- function(object, ...) {
+    ## This should be present even in HittedWallTime and HittedMaxTries
+    ## if those are not regarded as errors
+    pbp <- ("pops.by.time" %in% names(object) )
     
-    if(object$other$UnrecoverExcept) ## yes, when bailing out from
+    if(object$other$UnrecoverExcept) { ## yes, when bailing out from
                                      ## except. can have just minimal
                                      ## content
         return(NA)
-    else if (object$HittedWallTime || object$HittedMaxTries)
+    } else if( !pbp & (object$HittedWallTime || object$HittedMaxTries) ) {
         return(NA)
-    else {
+    } else if ( !pbp & !(object$HittedWallTime || object$HittedMaxTries) ) {
+        stop("Eh? No pops.by.time but did not hit wall time or max tries? BUG!")
+    } else {
         tmp <- object[c("NumClones", "TotalPopSize", "LargestClone",
                         "MaxNumDrivers", "MaxDriversLast",
                         "NumDriversLargestPop", "TotalPresentDrivers",
-                        "FinalTime", "NumIter", "HittedWallTime")]
+                        "FinalTime", "NumIter", "HittedWallTime",
+                        "HittedMaxTries")]
  
         tmp$errorMF <- object$other$errorMF
         tmp$minDMratio <- object$other$minDMratio
@@ -1458,7 +1482,8 @@ phylogClone <- function(x, N = 1, t = "last", keepEvents = TRUE) {
     
     df <- x$other$PhylogDF
     if(nrow(df) == 0) {
-        warning("PhylogDF has 0 rows: no descendants of initMutant ever appeared.")
+        warning("PhylogDF has 0 rows: no descendants of initMutant ever appeared. ",
+                "This also happens if you did not set 'keepPhylog = TRUE'.")
         return(NA)
     }
     if(!keepEvents) { ## is this just a graphical thing? or not?

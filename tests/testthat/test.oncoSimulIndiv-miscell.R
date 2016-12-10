@@ -1,5 +1,18 @@
 cat(paste("\n Starting oncoSimulIndiv-miscell tests", date(), "\n"))
 
+test_that("sampleEvery must have a value", {
+     oi <- allFitnessEffects(orderEffects =
+                                c("F > D" = -0.3, "D > F" = 0.4),
+                            noIntGenes = rexp(5, 10),
+                            geneToModule =
+                                c("Root" = "Root",
+                                  "F" = "f1, f2, f3",
+                                  "D" = "d1, d2") )
+     expect_error(oncoSimulIndiv(pi, sampleEvery = NA),
+                  "sampleEvery cannot be NULL or NA",
+                  fixed = TRUE)
+})
+
 ## RNGkind("Mersenne-Twister")
 test_that("can start from 1 individual but error if McFL", {
     oi <- allFitnessEffects(orderEffects =
@@ -377,15 +390,15 @@ test_that("samplePop, a few examples with time last and whole pop", {
     TotalPresentDrivers = 0L, CountByDriver = integer(0), OccurringDrivers = "", 
     PerSampleStats = structure(c(62989, 62925, 0.998983949578498, 
     0, 0), .Dim = c(1L, 5L)), other = structure(list(attemptsUsed = 1L, 
-        errorMF = -99, errorMF_size = 0, errorMF_n_0 = 0, minDMratio = 25000, 
-        minBMratio = 166666.666666667, errorMF_n_1 = 0, PhylogDF = structure(list(
+        errorMF = -99, errorMF_size = 0,  minDMratio = 25000, 
+        minBMratio = 166666.666666667,  PhylogDF = structure(list(
             parent = structure(integer(0), .Label = character(0), class = "factor"), 
             child = structure(integer(0), .Label = character(0), class = "factor"), 
             time = numeric(0)), .Names = c("parent", "child", 
         "time"), row.names = integer(0), class = "data.frame"), 
         UnrecoverExcept = FALSE), .Names = c("attemptsUsed", 
-    "errorMF", "errorMF_size", "errorMF_n_0", "minDMratio", "minBMratio", 
-    "errorMF_n_1", "PhylogDF", "UnrecoverExcept")), Drivers = integer(0), 
+    "errorMF", "errorMF_size",  "minDMratio", "minBMratio", 
+     "PhylogDF", "UnrecoverExcept")), Drivers = integer(0), 
     geneNames = c("a", "b", "n1", "n2", "n3", "n4", "n5")), .Names = c("pops.by.time", 
 "NumClones", "TotalPopSize", "Genotypes", "GenotypesWDistinctOrderEff", 
 "GenotypesLabels", "MaxNumDrivers", "MaxDriversLast", "NumDriversLargestPop", 
@@ -409,15 +422,15 @@ test_that("samplePop, a few examples with time last and whole pop", {
     TotalPresentDrivers = 0L, CountByDriver = integer(0), OccurringDrivers = "", 
     PerSampleStats = structure(c(16000, 16000, 1, 0, 0), .Dim = c(1L, 
     5L)), other = structure(list(attemptsUsed = 1L, errorMF = -99, 
-        errorMF_size = 0, errorMF_n_0 = 0, minDMratio = 41666.6666666667, 
-        minBMratio = 166666.666666667, errorMF_n_1 = 0, PhylogDF = structure(list(
+        errorMF_size = 0,  minDMratio = 41666.6666666667, 
+        minBMratio = 166666.666666667,  PhylogDF = structure(list(
             parent = structure(integer(0), .Label = character(0), class = "factor"), 
             child = structure(integer(0), .Label = character(0), class = "factor"), 
             time = numeric(0)), .Names = c("parent", "child", 
         "time"), row.names = integer(0), class = "data.frame"), 
         UnrecoverExcept = FALSE), .Names = c("attemptsUsed", 
-    "errorMF", "errorMF_size", "errorMF_n_0", "minDMratio", "minBMratio", 
-    "errorMF_n_1", "PhylogDF", "UnrecoverExcept")), Drivers = integer(0), 
+    "errorMF", "errorMF_size",  "minDMratio", "minBMratio", 
+     "PhylogDF", "UnrecoverExcept")), Drivers = integer(0), 
     geneNames = c("a", "b", "n1", "n2", "n3", "n4", "n5")), .Names = c("pops.by.time", 
 "NumClones", "TotalPopSize", "Genotypes", "GenotypesWDistinctOrderEff", 
 "GenotypesLabels", "MaxNumDrivers", "MaxDriversLast", "NumDriversLargestPop", 
@@ -442,15 +455,15 @@ test_that("samplePop, a few examples with time last and whole pop", {
     HittedWallTime = FALSE, HittedMaxTries = FALSE, TotalPresentDrivers = 0L, 
     CountByDriver = integer(0), OccurringDrivers = "", PerSampleStats = structure(c(65814, 
     65810, 0.999939222657793, 0, 0), .Dim = c(1L, 5L)), other = structure(list(
-        attemptsUsed = 1L, errorMF = -99, errorMF_size = 0, errorMF_n_0 = 0, 
+        attemptsUsed = 1L, errorMF = -99, errorMF_size = 0,  
         minDMratio = 41666.6666666667, minBMratio = 166666.666666667, 
-        errorMF_n_1 = 0, PhylogDF = structure(list(parent = structure(integer(0), .Label = character(0), class = "factor"), 
+         PhylogDF = structure(list(parent = structure(integer(0), .Label = character(0), class = "factor"), 
             child = structure(integer(0), .Label = character(0), class = "factor"), 
             time = numeric(0)), .Names = c("parent", "child", 
         "time"), row.names = integer(0), class = "data.frame"), 
         UnrecoverExcept = FALSE), .Names = c("attemptsUsed", 
-    "errorMF", "errorMF_size", "errorMF_n_0", "minDMratio", "minBMratio", 
-    "errorMF_n_1", "PhylogDF", "UnrecoverExcept")), Drivers = integer(0), 
+    "errorMF", "errorMF_size",  "minDMratio", "minBMratio", 
+     "PhylogDF", "UnrecoverExcept")), Drivers = integer(0), 
     geneNames = c("a", "b", "n1", "n2", "n3", "n4", "n5")), .Names = c("pops.by.time", 
 "NumClones", "TotalPopSize", "Genotypes", "GenotypesWDistinctOrderEff", 
 "GenotypesLabels", "MaxNumDrivers", "MaxDriversLast", "NumDriversLargestPop", 
@@ -474,15 +487,15 @@ test_that("samplePop, a few examples with time last and whole pop", {
     TotalPresentDrivers = 0L, CountByDriver = integer(0), OccurringDrivers = "", 
     PerSampleStats = structure(c(51024, 51024, 1, 0, 0), .Dim = c(1L, 
     5L)), other = structure(list(attemptsUsed = 1L, errorMF = -99, 
-        errorMF_size = 0, errorMF_n_0 = 0, minDMratio = 41666.6666666667, 
-        minBMratio = 166666.666666667, errorMF_n_1 = 0, PhylogDF = structure(list(
+        errorMF_size = 0,  minDMratio = 41666.6666666667, 
+        minBMratio = 166666.666666667,  PhylogDF = structure(list(
             parent = structure(integer(0), .Label = character(0), class = "factor"), 
             child = structure(integer(0), .Label = character(0), class = "factor"), 
             time = numeric(0)), .Names = c("parent", "child", 
         "time"), row.names = integer(0), class = "data.frame"), 
         UnrecoverExcept = FALSE), .Names = c("attemptsUsed", 
-    "errorMF", "errorMF_size", "errorMF_n_0", "minDMratio", "minBMratio", 
-    "errorMF_n_1", "PhylogDF", "UnrecoverExcept")), Drivers = integer(0), 
+    "errorMF", "errorMF_size",  "minDMratio", "minBMratio", 
+     "PhylogDF", "UnrecoverExcept")), Drivers = integer(0), 
     geneNames = c("a", "b", "n1", "n2", "n3", "n4", "n5")), .Names = c("pops.by.time", 
 "NumClones", "TotalPopSize", "Genotypes", "GenotypesWDistinctOrderEff", 
 "GenotypesLabels", "MaxNumDrivers", "MaxDriversLast", "NumDriversLargestPop", 
@@ -507,15 +520,15 @@ test_that("samplePop, a few examples with time last and whole pop", {
     HittedWallTime = FALSE, HittedMaxTries = FALSE, TotalPresentDrivers = 0L, 
     CountByDriver = integer(0), OccurringDrivers = "", PerSampleStats = structure(c(64376, 
     64375, 0.999984466260718, 0, 0), .Dim = c(1L, 5L)), other = structure(list(
-        attemptsUsed = 1L, errorMF = -99, errorMF_size = 0, errorMF_n_0 = 0, 
+        attemptsUsed = 1L, errorMF = -99, errorMF_size = 0,  
         minDMratio = 41666.6666666667, minBMratio = 166666.666666667, 
-        errorMF_n_1 = 0, PhylogDF = structure(list(parent = structure(integer(0), .Label = character(0), class = "factor"), 
+         PhylogDF = structure(list(parent = structure(integer(0), .Label = character(0), class = "factor"), 
             child = structure(integer(0), .Label = character(0), class = "factor"), 
             time = numeric(0)), .Names = c("parent", "child", 
         "time"), row.names = integer(0), class = "data.frame"), 
         UnrecoverExcept = FALSE), .Names = c("attemptsUsed", 
-    "errorMF", "errorMF_size", "errorMF_n_0", "minDMratio", "minBMratio", 
-    "errorMF_n_1", "PhylogDF", "UnrecoverExcept")), Drivers = integer(0), 
+    "errorMF", "errorMF_size",  "minDMratio", "minBMratio", 
+     "PhylogDF", "UnrecoverExcept")), Drivers = integer(0), 
     geneNames = c("a", "b", "n1", "n2", "n3", "n4", "n5")), .Names = c("pops.by.time", 
 "NumClones", "TotalPopSize", "Genotypes", "GenotypesWDistinctOrderEff", 
 "GenotypesLabels", "MaxNumDrivers", "MaxDriversLast", "NumDriversLargestPop", 
@@ -839,7 +852,8 @@ test_that("samplePop deals with failures in simuls", {
     
     fe <- allFitnessEffects(noIntGenes = c(-0.1, -0.2, -0.3))
     uu <- oncoSimulIndiv(fe, max.wall.time = 0.2, max.num.tries = 5)
-    uup <- oncoSimulPop(4, fe, max.wall.time = 0.2, max.num.tries = 5)
+    uup <- oncoSimulPop(4, fe, max.wall.time = 0.2, max.num.tries = 5,
+                        mc.cores = 2)
     expect_warning(uus <- samplePop(uu),
                    "It looks like this simulation never completed",
                    fixed = TRUE)
@@ -862,14 +876,14 @@ test_that("samplePop deals with failures in simuls", {
 test_that("summary.oncosimulepop deals with failures in simuls", {
     
     fe <- allFitnessEffects(noIntGenes = c(-0.1, -0.2, -0.3))
-    uup <- oncoSimulPop(4, fe, max.wall.time = 0.2, max.num.tries = 5)
+    uup <- oncoSimulPop(4, fe, max.wall.time = 0.2, max.num.tries = 5, mc.cores = 2)
     expect_warning(uus <- summary(uup),
                    "All simulations failed",
                    fixed = TRUE)
     ## And it works when only some fail
     fe2 <- allFitnessEffects(noIntGenes = c(0.1, 0.2, 0.3))
-    uu2 <- oncoSimulPop(2, fe2)
-    uu <- oncoSimulPop(2, fe, max.wall.time = 0.2, max.num.tries = 5)
+    uu2 <- oncoSimulPop(2, fe2, mc.cores = 2)
+    uu <- oncoSimulPop(2, fe, max.wall.time = 0.2, max.num.tries = 5, mc.cores = 2)
     u3 <- c(uu, uu2)
     class(u3) <- "oncosimulpop"
     expect_warning(uu3ps <- summary(u3),
@@ -990,6 +1004,21 @@ test_that("AND_DrvProbExit exercising and test it works" , {
     expect_true(sum(m3p[nrow(m3p), , drop = FALSE]) >= 100)
 }
 )
+
+
+
+
+test_that("exercising oncoSimulIndiv, max size warning", {
+    p1 <- allFitnessEffects(noIntGenes = rep(.1, 10))
+    expect_output(oncoSimulIndiv(p1, initSize = 1.5e15, verbosity = 1,
+                                 onlyCancer = FALSE, mu= 1e-7))
+    data(examplePosets)
+    p701 <- examplePosets[["p701"]]
+    expect_output(oncoSimulIndiv(p701, initSize = 4.1e15, verbosity = 1,
+                                 onlyCancer = FALSE, mu= 1e-7))
+})
+
+
 
 
 cat(paste("\n Ending oncoSimulIndiv-miscell tests", date(), "\n"))

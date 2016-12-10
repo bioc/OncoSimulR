@@ -806,9 +806,10 @@ static void innerBNB(const int& numGenes,
 		     const double& extraTime,
 		     const int& verbosity,
 		     double& totPopSize,
-		     double& e1,
-		     double& n_0,
-		     double& n_1,
+		     double& em1,
+		     double& em1sc,
+		     // double& n_1,
+		     // double& en1,
 		     double& ratioForce,
 		     double& currentTime,
 		     int& speciesFS,
@@ -948,14 +949,18 @@ static void innerBNB(const int& numGenes,
   double adjust_fitness_MF = -std::numeric_limits<double>::infinity();
 
   // for McFarland error
-  e1 = 0.0;
-  n_0 = 0.0;
-  n_1 = 0.0;
-  double tps_0, tps_1; 
-  tps_0 = totPopSize;
-  tps_1 = totPopSize;
+  em1 = 0.0;
+  em1sc = 0.0;
+  // n_0 = 0.0;
+  // n_1 = 0.0;
+  // double tps_0; //, tps_1; 
+  // tps_0 = totPopSize;
+  // tps_1 = totPopSize;
 
-
+  
+  double totPopSize_previous = totPopSize;
+  double DA_previous = log1p(totPopSize_previous/K);
+  
       // // FIXME debug
       // Rcpp::Rcout << "\n popSize[0]  at 10004 ";
       // print_spP(popParams[0]);
@@ -982,7 +987,7 @@ static void innerBNB(const int& numGenes,
   // anything. FIXME!!
 
   if(initMutant >= 0)
-    throw std::invalid_argument("initMutant no longer allowed. But in R code.");
+    throw std::invalid_argument("initMutant no longer allowed. Bug in R code.");
   // if(initMutant >= 0) {
   //   popParams[0].numMutablePos = numGenes - 1;
   //   Genotypes[0].set(initMutant);
@@ -1561,9 +1566,10 @@ static void innerBNB(const int& numGenes,
 		  << "\n totPopSize after sampling " << totPopSize << "\n";
       }
       
-      computeMcFarlandError(e1, n_0, n_1, tps_0, tps_1, 
-			    typeFitness, totPopSize, K); //, initSize);
-
+      // computeMcFarlandError(e1, n_0, tps_0, 
+      // 			    typeFitness, totPopSize, K); //, initSize);
+	computeMcFarlandError_new(em1, em1sc, totPopSize_previous, DA_previous, 
+			    typeFitness, totPopSize, K); 
       // Largest error in McFarlands' method
       // if( (typeFitness == "mcfarland0") ||
       // 	  (typeFitness == "mcfarland") || 
@@ -1741,7 +1747,7 @@ Rcpp::List BNB_Algo5(Rcpp::IntegerMatrix restrictTable,
   	>= pow(2, 64)) )
     throw std::range_error("The size of unsigned long long is too short.");
   if(numGenes > 64)  
-    throw std::range_error("This version only accepts up to 64 genes. Caught in R");
+    throw std::range_error("This version only accepts up to 64 genes. Should be caught in R");
 
   bool runAgain = true;
   bool reachDetection = false;
@@ -1802,14 +1808,17 @@ Rcpp::List BNB_Algo5(Rcpp::IntegerMatrix restrictTable,
   // //McFarland
   // double adjust_fitness_MF = -std::numeric_limits<double>::infinity();
 
-  double e1, n_0, n_1; // for McFarland error
+  // double e1, n_0; //, n_1; // for McFarland error
   // double tps_0, tps_1; // for McFarland error
   // tps_0 = 0.0;
   // tps_1 = 0.0;
-  e1 = 0.0;
-  n_0 = 0.0;
-  n_1 = 0.0;
-
+  // e1 = 0.0;
+  // n_0 = 0.0;
+  // n_1 = 0.0;
+  double em1, em1sc; // new computation of McFarland error
+  em1 = 0.0;
+  em1sc = 0.0;
+  
   // // For totPopSize_and_fill and bailing out
   // // should be static vars inside funct,
   // // but they keep value over calls in same R session.
@@ -1886,9 +1895,11 @@ Rcpp::List BNB_Algo5(Rcpp::IntegerMatrix restrictTable,
 	       extraTime,
 	       verbosity,
 	       totPopSize,
-	       e1,
-	       n_0,
-	       n_1,
+	       em1,
+	       em1sc,
+	       // n_0,
+	       // n_1,
+	       // em1,
 	       ratioForce,
 	       currentTime,
 	       speciesFS,
@@ -2120,12 +2131,12 @@ Rcpp::List BNB_Algo5(Rcpp::IntegerMatrix restrictTable,
 		 // drivers if keepEvery < 0, so we only return the last.
 		 Named("OccurringDrivers") = occurringDrivers,
 		 Named("PerSampleStats") = perSampleStats,
-		 Named("other") = Rcpp::List::create(Named("attemptsUsed") = numRuns,
-					       Named("errorMF") = 
-						     returnMFE(e1, // K, 
-							 typeFitness),
-					       Named("errorMF_size") = e1,
-					       Named("errorMF_n_0") = n_0,
+		       Named("other") = Rcpp::List::create(Named("attemptsUsed") = numRuns,
+							   Named("errorMF") =
+							   returnMFE_new(em1sc, typeFitness),
+							   Named("errorMF_size") = 
+							   returnMFE_new(em1, typeFitness), // Used to be e1, not log
+							   // Named("errorMF_n_0") = n_0,
 #ifdef MIN_RATIO_MUTS
 					       Named("minDMratio") =
 					       g_min_death_mut_ratio,
@@ -2135,7 +2146,7 @@ Rcpp::List BNB_Algo5(Rcpp::IntegerMatrix restrictTable,
 					       Named("minDMratio") = -99,
 					       Named("minBMratio") = -99,
 #endif
-					       Named("errorMF_n_1") = n_1,
+							   // Named("errorMF_n_1") = n_1,
 					       Named("UnrecoverExcept") = false)
 		 );
 

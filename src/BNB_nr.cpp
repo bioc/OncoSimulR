@@ -777,9 +777,10 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
 			const double& extraTime,
 			const int& verbosity,
 			double& totPopSize,
-			double& e1,
-			double& n_0,
-			double& n_1,
+			double& em1,
+			double& em1sc,
+			// double& n_1,
+			// double& en1,
 			double& ratioForce,
 			double& currentTime,
 			int& speciesFS,
@@ -955,13 +956,17 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
   double adjust_fitness_MF = -std::numeric_limits<double>::infinity();
 
   // for McFarland error
-  e1 = 0.0;
-  n_0 = 0.0;
-  n_1 = 0.0;
-  double tps_0, tps_1; 
-  tps_0 = totPopSize;
-  tps_1 = totPopSize;
+  em1 = 0.0;
+  em1sc = 0.0;
+  // n_0 = 0.0;
+  // n_1 = 0.0;
+  // double tps_0; //, tps_1; 
+  // tps_0 = totPopSize;
+  // tps_1 = totPopSize;
 
+  // en1 = 0;
+  double totPopSize_previous = totPopSize;
+  double DA_previous = log1p(totPopSize_previous/K);
 
       // // FIXME debug
       // Rcpp::Rcout << "\n popSize[0]  at 10004 ";
@@ -1646,8 +1651,10 @@ static void nr_innerBNB(const fitnessEffectsAll& fitnessEffects,
 		  << "\n totPopSize after sampling " << totPopSize << "\n";
       }
       
-      computeMcFarlandError(e1, n_0, n_1, tps_0, tps_1, 
-			    typeModel, totPopSize, K); //, initSize);
+      // computeMcFarlandError(e1, n_0, tps_0,  
+      // 			    typeModel, totPopSize, K); //, initSize);
+      computeMcFarlandError_new(em1, em1sc, totPopSize_previous, DA_previous, 
+				typeModel, totPopSize, K); 
 
       if(simulsDone)
 	break; //skip last updateRates
@@ -1858,14 +1865,19 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   // //McFarland
   // double adjust_fitness_MF = -std::numeric_limits<double>::infinity();
 
-  double e1, n_0, n_1; // for McFarland error
+  // double e1, n_0; //n_1; // for McFarland error
   // double tps_0, tps_1; // for McFarland error
   // tps_0 = 0.0;
   // tps_1 = 0.0;
-  e1 = 0.0;
-  n_0 = 0.0;
-  n_1 = 0.0;
+  // e1 = 0.0;
+  // n_0 = 0.0;
+  // n_1 = 0.0;
 
+  double em1, em1sc; // new computation of McFarland error
+  em1 = 0.0;
+  em1sc = 0.0;
+
+  
   // // For totPopSize_and_fill and bailing out
   // // should be static vars inside funct,
   // // but they keep value over calls in same R session.
@@ -1931,9 +1943,11 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 	       extraTime,
 	       verbosity,
 	       totPopSize,
-	       e1,
-	       n_0,
-	       n_1,
+	       em1,
+		  em1sc,
+	       // n_0,
+	       // 	  // n_1,
+	       // 	  en1,
 	       ratioForce,
 	       currentTime,
 	       speciesFS,
@@ -2069,7 +2083,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   fill_SStats(perSampleStats, sampleTotPopSize, sampleLargestPopSize,
   	      sampleLargestPopProp, sampleMaxNDr, sampleNDrLargestPop);
 
- 
+  
   return
     List::create(Named("pops.by.time") = outNS,
 		 Named("NumClones") = uniqueGenotypes_vector_nr.size(), 
@@ -2091,11 +2105,11 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 		 Named("OccurringDrivers") = driversAsString,
 		 Named("PerSampleStats") = perSampleStats,
 		 Named("other") = List::create(Named("attemptsUsed") = numRuns,
-					       Named("errorMF") = 
-					       returnMFE(e1, //K, 
-							 typeModel),
-					       Named("errorMF_size") = e1,
-					       Named("errorMF_n_0") = n_0,
+					       Named("errorMF") =
+					       returnMFE_new(em1sc, typeModel),
+					       Named("errorMF_size") = 
+					       returnMFE_new(em1, typeModel), // Used to be e1, not log
+					       // Named("errorMF_n_0") = n_0,
 #ifdef MIN_RATIO_MUTS_NR
 					       Named("minDMratio") =
 					       g_min_death_mut_ratio_nr,
@@ -2105,7 +2119,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 					       Named("minDMratio") = -99,
 					       Named("minBMratio") = -99,
 #endif
-					       Named("errorMF_n_1") = n_1,
+					       //    Named("errorMF_n_1") = n_1,
 					       Named("PhylogDF") =  DataFrame::create(
 										      Named("parent") = phylog.parent,
 										      Named("child") = phylog.child,

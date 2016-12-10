@@ -1,6 +1,7 @@
 \name{samplePop}
 \alias{samplePop}
 \alias{sampledGenotypes}
+\alias{print.sampledGenotypes}
 \title{
   Obtain a sample from a population of simulations.
   
@@ -16,13 +17,15 @@
 
   
   \code{sampledGenotypes} shows the genotype frequencies from that
-  sample. Order effects are ignored.
+  sample; Shannon's diversity ---entropy--- of the genotypes is also
+  returned.  Order effects are ignored.
   
 }
 
 \usage{
 samplePop(x, timeSample = "last", typeSample = "whole",
-          thresholdWhole = 0.5, geneNames = NULL, popSizeSample = NULL)
+          thresholdWhole = 0.5, geneNames = NULL, popSizeSample = NULL,
+          propError = 0)
 
 sampledGenotypes(y, genes = NULL)
 
@@ -46,7 +49,7 @@ sampledGenotypes(y, genes = NULL)
     of their simulation.
 
     You can, alternatively, specify the population size at which you
-    want the sample to be taken. See argument \code{popSizeSample} .
+    want the sample to be taken. See argument \code{popSizeSample}.
   } 
   
   \item{typeSample}{
@@ -74,6 +77,12 @@ sampledGenotypes(y, genes = NULL)
     This allows you to specify arbitrary sampling schemes with respect
     to total population size.  }
 
+  \item{propError}{The proportion of observations with error (for
+    instance, genotyping error). If larger than 0, this proportion of
+    entries in the sampled matrix will be flipped (i.e., 0s turned
+    to 1s and 1s turned to 0s).}
+
+  
   \item{genes}{If non-NULL, use only the genes in \code{genes} to create
   the table of genotypes. This can be useful if you only care about the
   genotypes with respect to a subset of genes (say, X), and want to
@@ -83,7 +92,9 @@ sampledGenotypes(y, genes = NULL)
   \code{genes = c('a', 'b')}; then, genotypes 'a, b, c' and genotypes
   'a, b, d' will not be shown as different rows in the table of
   frequencies. Likewise, genotypes 'a, c' and genotypes 'a, d' will not
-  be shown as different rows.}
+  be shown as different rows.  Of course, if what are actually different
+  genotypes are not regarded as different, this will affect the
+  calculation of the diversity.}
 
 }
 
@@ -127,6 +138,14 @@ sampledGenotypes(y, genes = NULL)
   0.4} you will obtain a genotype with A and B mutated.
   %% To make it more clear that genes/laterations are in
   %% columns, columns are named starting by "G."  (for "gene").
+
+
+  For \code{sampledGenotypes} a data frame with two columns: genotypes
+  and frequencies. This data frame has an additional attribute,
+  "ShannonI", where Shannon's index of diversity (entropy) is
+  stored. This is an object of class  "sampledGenotypes"
+  with an S3 print method.
+
 }
 
 \references{
