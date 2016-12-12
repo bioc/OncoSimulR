@@ -152,10 +152,11 @@ require(pander)
 
 # Introduction {#introdd}
  
-OncoSimulR is an individual-based forward-time genetic simulator for
-biallelic markers (wildtype vs. mutated) in asexually reproducing
-populations without spatial structure (perfect mixing). Its design
-emphasizes flexible specification of fitness and mutator effects.
+OncoSimulR is an individual- or clone-based forward-time genetic
+simulator for biallelic markers (wildtype vs. mutated) in asexually
+reproducing populations without spatial structure (perfect
+mixing). Its design emphasizes flexible specification of fitness and
+mutator effects.
  
  
  
@@ -512,24 +513,26 @@ set.seed(7)
 RNGkind("L'Ecuyer-CMRG")
 ```
 
-### Epistasis and predictability in rugged fitness landscapes in asexual populations {#ex-ochs}
+### Sign epistasis and probability of crossing fitness valleys {#ex-ochs}
 
-These questions encompass a wide range of specific issues that have been
-addressed in evolutionary genetics studies and which include from detailed
+These questions, together with the next one (\@ref(ex-predict)),
+encompass a wide range of specific issues that have been addressed
+in evolutionary genetics studies and which include from detailed
 analysis of simple models with a few uphill paths and valleys as in
-@Weissman2009 or @Ochs2015, to questions that refer to larger, more complex
-fitness landscapes as in @szendro_predictability_2013 or
-@franke_evolutionary_2011.
+@Weissman2009 or @Ochs2015, to questions that refer to larger, more
+complex fitness landscapes as in @szendro_predictability_2013 or
+@franke_evolutionary_2011 (see below).
 
 
-For the first case, we could specify the fitness landscape and run
-simulations until fixation (with argument `fixation` to `oncoSimulPop`
----see more details in section \@ref(fixation) where we also use this same
-model). We would then examine the proportion of genotypes fixed under
-different scenarios. For instance, we can use the example from @Ochs2015 (we
-will see this example also in section \@ref(ochsdesai), where we cover
-different ways of specifying fitness). And we can extend this example by
-adding mutator genes:
+Using as an example @Ochs2015, we could specify the fitness
+landscape and run simulations until fixation (with argument
+`fixation` to `oncoSimulPop` ---see more details in section
+\@ref(fixation) where we also use this same model). We would then
+examine the proportion of genotypes fixed under different
+scenarios. For instance, we can use the example from @Ochs2015 (we
+will see this example also in section \@ref(ochsdesai), where we
+cover different ways of specifying fitness). And we can extend this
+example by adding mutator genes:
 
 
 ```{r hiddenochs, echo=FALSE}
@@ -588,11 +591,13 @@ sampledGenotypes(samplePop(od_sim))
 set.seed(NULL)
 ```
 
+### Predictability of evolution in complex fitness landscapes {#ex-predict}
 
-For the second set of questions, we would run simulations under random
-fitness landscapes with varied ruggedness, and would then examine the
-evolutionary predictability of the trajectories with measures such as "Lines
-of Descent" and "Path of the Maximum" [@szendro_predictability_2013] and the
+Focusing now on predictability in more general fitness landscapes,
+we would run simulations under random fitness landscapes with varied
+ruggedness, and would then examine the evolutionary predictability
+of the trajectories with measures such as "Lines of Descent" and
+"Path of the Maximum" [@szendro_predictability_2013] and the
 diversity of the sampled genotypes under different sampling regimes.
 
 
@@ -651,141 +656,15 @@ set.seed(NULL)
 ```
 
 
-### Epistatic interactions between drivers and passengers in cancer initiation {#exbauer}
 
-@Bauer2014 have examined the effects of epistatic relationships
-between drivers and passengers in cancer initiation. We could use
-their model as a starting point, and examine how likely cancer is to
-develop under different variations of their model and different
-evolutionary scenarios (e.g., initial sample size, mutation rates,
-evolutionary model, etc).
+### Mutator and antimutator genes {#ex-mut-antimut}
 
-
-There are several ways to specify their model, as we discuss in
-section \@ref(bauer). We will use one based on DAGs here:
-
-
-```{r exusagebau}
-K <- 4
-sp <- 1e-5
-sdp <- 0.015
-sdplus <- 0.05
-sdminus <- 0.1
-
-cnt <- (1 + sdplus)/(1 + sdminus)
-prod_cnt <- cnt - 1
-bauer <- data.frame(parent = c("Root", rep("D", K)),
-                    child = c("D", paste0("s", 1:K)),
-                    s = c(prod_cnt, rep(sdp, K)),
-                    sh = c(0, rep(sp, K)),
-                    typeDep = "MN")
-fbauer <- allFitnessEffects(bauer)
-(b1 <- evalAllGenotypes(fbauer, order = FALSE, addwt = TRUE))
-
-## How does the fitness landscape look like?
-plot(b1, use_ggrepel = TRUE) ## avoid overlapping labels
-```
-
-Now run simulations and examine how frequently the runs do not end
-up in extinction (for real, you would of course increase the number
-of total populations, the range of initial population sizes, model,
-mutation rate, etc):
-
-
-```{r hiddenbau, echo=FALSE}
-set.seed(2)
-RNGkind("L'Ecuyer-CMRG")
-```
-
-```{r exusagebau2}
-totalpops <- 5
-sb1 <- oncoSimulPop(totalpops, fbauer, model = "Exp",
-                    initSize = 100,
-                    onlyCancer = FALSE, 
-					mc.cores = 2, ## adapt to your hardware
-                    seed = NULL) ## for reproducibility
-## What proportion of the simulations do not end up extinct?
-sum(summary(sb1)[, "TotalPopSize"] > 0)/totalpops
-
-```
-```{r hidden-rng-exbau, echo = FALSE}
-set.seed(NULL)
-```
-### Epistatic interactions between drivers and passengers in cancer initiation {#exorder1intro}
-
-Instead of focusing on different models for epistatic interactions,
-you might want to examine the consequences of order effects
-[@Ortmann2015]. You would proceed as above, but using models that
-differ by, say, the presence or absence of order effects. Details on
-their specification are provided in section \@ref(oe). Here is one
-particular model (you would, of course, want to compare this to
-models without order effects or with other magnitudes and types of
-order effects):
-
-
-```{r oex1intro}
-## Order effects involving three genes.
-
-## Genotype D, M has different fitness effects
-## depending on whether M or D mutated first.
-
-## Genotype F, D, M has different fitness
-## depending on which of the order in which the genes
-## mutated.
-
-o3 <- allFitnessEffects(orderEffects = c(
-                            "F > D > M" = -0.3,
-                            "D > F > M" = 0.4,
-                            "D > M > F" = 0.2,
-                            "D > M"     = 0.1,
-                            "M > D"     = 0.5))
-
-## With the above specification, let's double check
-## the fitness of the possible genotypes
-
-(oeag <- evalAllGenotypes(o3, addwt = TRUE, order = TRUE))
-
-``` 
-
-Now, run simulations and examine how frequently the runs do not end
-up in extinction. As above, for real, you would of course increase
-the number of total populations, the range of initial population
-sizes, mutation rate, etc:
-
-
-
-```{r hiddoef, echo=FALSE}
-set.seed(2)
-RNGkind("L'Ecuyer-CMRG")
-```
-
-```{r exusageoe2}
-totalpops <- 5
-soe1 <- oncoSimulPop(totalpops, o3, model = "Exp",
-                    initSize = 500,
-                    onlyCancer = FALSE,
-					mc.cores = 2, ## adapt to your hardware
-                    seed = NULL) ## for reproducibility
-					
-## What proportion of the simulations do not end up extinct?
-sum(summary(soe1)[, "TotalPopSize"] > 0)/totalpops
-
-```
-
-```{r hidden-rng-exoef, echo = FALSE}
-set.seed(NULL)
-```
-
-
-
-
-### Effects of mutator and antimutator genes {#ex-mut-antimut}
-
-The effects of mutator and antimutator genes have been examined both in
-cancer genetics [@nowak_evolutionary_2006, @tomlinson_mutation_1996] and in
-evolutionary genetics [@gerrish_complete_2007], and are related to wider
-issues such as Muller's ratchet and the evolution of sex. There are, thus, a
-large range of questions related to mutator and antimutator genes.
+The effects of mutator and antimutator genes have been examined both
+in cancer genetics [@nowak_evolutionary_2006,
+@tomlinson_mutation_1996] and in evolutionary genetics
+[@gerrish_complete_2007], and are related to wider issues such as
+Muller's ratchet and the evolution of sex. There are, thus, a large
+range of questions related to mutator and antimutator genes.
 
 
 One question addressed in @tomlinson_mutation_1996 concerns under what
@@ -867,6 +746,139 @@ set.seed(NULL)
 exception if you do not think twice about the mutator effects you are using
 and specify a huge mutation rate if all mutator genes are mutated: see
 \@(tomlin-except).)
+
+
+
+
+### Epistatic interactions between drivers and passengers in cancer and the consequences of order effects {#exbauer}
+
+#### Epistatic interactions between drivers and passengers
+
+@Bauer2014 have examined the effects of epistatic relationships
+between drivers and passengers in cancer initiation. We could use
+their model as a starting point, and examine how likely cancer is to
+develop under different variations of their model and different
+evolutionary scenarios (e.g., initial sample size, mutation rates,
+evolutionary model, etc).
+
+
+There are several ways to specify their model, as we discuss in
+section \@ref(bauer). We will use one based on DAGs here:
+
+
+```{r exusagebau}
+K <- 4
+sp <- 1e-5
+sdp <- 0.015
+sdplus <- 0.05
+sdminus <- 0.1
+
+cnt <- (1 + sdplus)/(1 + sdminus)
+prod_cnt <- cnt - 1
+bauer <- data.frame(parent = c("Root", rep("D", K)),
+                    child = c("D", paste0("s", 1:K)),
+                    s = c(prod_cnt, rep(sdp, K)),
+                    sh = c(0, rep(sp, K)),
+                    typeDep = "MN")
+fbauer <- allFitnessEffects(bauer)
+(b1 <- evalAllGenotypes(fbauer, order = FALSE, addwt = TRUE))
+
+## How does the fitness landscape look like?
+plot(b1, use_ggrepel = TRUE) ## avoid overlapping labels
+```
+
+Now run simulations and examine how frequently the runs do not end
+up in extinction (for real, you would of course increase the number
+of total populations, the range of initial population sizes, model,
+mutation rate, etc):
+
+
+```{r hiddenbau, echo=FALSE}
+set.seed(2)
+RNGkind("L'Ecuyer-CMRG")
+```
+
+```{r exusagebau2}
+totalpops <- 5
+sb1 <- oncoSimulPop(totalpops, fbauer, model = "Exp",
+                    initSize = 100,
+                    onlyCancer = FALSE, 
+					mc.cores = 2, ## adapt to your hardware
+                    seed = NULL) ## for reproducibility
+## What proportion of the simulations do not end up extinct?
+sum(summary(sb1)[, "TotalPopSize"] > 0)/totalpops
+
+```
+```{r hidden-rng-exbau, echo = FALSE}
+set.seed(NULL)
+```
+
+
+#### Consequences of order effects for cancer initiation {#exorder1intro}
+
+Instead of focusing on different models for epistatic interactions,
+you might want to examine the consequences of order effects
+[@Ortmann2015]. You would proceed as above, but using models that
+differ by, say, the presence or absence of order effects. Details on
+their specification are provided in section \@ref(oe). Here is one
+particular model (you would, of course, want to compare this to
+models without order effects or with other magnitudes and types of
+order effects):
+
+
+```{r oex1intro}
+## Order effects involving three genes.
+
+## Genotype D, M has different fitness effects
+## depending on whether M or D mutated first.
+
+## Genotype F, D, M has different fitness
+## depending on which of the order in which the genes
+## mutated.
+
+o3 <- allFitnessEffects(orderEffects = c(
+                            "F > D > M" = -0.3,
+                            "D > F > M" = 0.4,
+                            "D > M > F" = 0.2,
+                            "D > M"     = 0.1,
+                            "M > D"     = 0.5))
+
+## With the above specification, let's double check
+## the fitness of the possible genotypes
+
+(oeag <- evalAllGenotypes(o3, addwt = TRUE, order = TRUE))
+
+``` 
+
+Now, run simulations and examine how frequently the runs do not end
+up in extinction. As above, for real, you would of course increase
+the number of total populations, the range of initial population
+sizes, mutation rate, etc:
+
+
+
+```{r hiddoef, echo=FALSE}
+set.seed(2)
+RNGkind("L'Ecuyer-CMRG")
+```
+
+```{r exusageoe2}
+totalpops <- 5
+soe1 <- oncoSimulPop(totalpops, o3, model = "Exp",
+                    initSize = 500,
+                    onlyCancer = FALSE,
+					mc.cores = 2, ## adapt to your hardware
+                    seed = NULL) ## for reproducibility
+					
+## What proportion of the simulations do not end up extinct?
+sum(summary(soe1)[, "TotalPopSize"] > 0)/totalpops
+
+```
+
+```{r hidden-rng-exoef, echo = FALSE}
+set.seed(NULL)
+```
+
 
 
 
@@ -1183,7 +1195,7 @@ version 2. Please note that **the functionality of version 1 will soon be remove
 
 # Running time and space consumption of OncoSimulR {#timings}
 
-Time to complete the simulations and size of return objects (space
+Time to complete the simulations and size of returned objects (space
 consumption) depend on several, interacting factors. The usual rule
 of "experiment before launching a large number of simulations"
 applies, but here we will walk through several cases to get a
@@ -1721,7 +1733,7 @@ Now most simulations under the exponential model end up in extinction, as
 seen by the median population size of 0 (but not all, as the mean and
 max. population size are clearly away from zero). Consequently,
 simulations under the exponential model are now faster (and the size of
-the average return object is smaller). Of course, whether one should run
+the average returned object is smaller). Of course, whether one should run
 simulations with `onlyCancer = TRUE` or `onlyCancer = FALSE` will depend
 on the question being asked (see, for example, section \@ref(exbauer) for
 a question where we will naturally want to use `onlyCancer = FALSE`).
@@ -2101,7 +2113,7 @@ pander(benchmark_2[ , c(
 \clearpage
 
 In most cases, simulations run reasonably fast (under 0.1 seconds per
-individual simulation) and the return objects are small. I will only
+individual simulation) and the returned objects are small. I will only
 focus on a few cases.
 
 The McFL model with random fitness landscape `rf12` and with `pancr` does
@@ -2248,7 +2260,7 @@ is much smaller.
 
 Yes. In fact, in OncoSimulR there is no pre-set limit on genome
 size. However, large numbers of genes can lead to unacceptable
-memory usage or running time. We discuss several examples next that
+memory usage and/or running time. We discuss several examples next that
 illustrate some of the major issues to consider. Another example
 with 50,000 genes is shown in section \@ref(mcf50070).
 
@@ -2269,7 +2281,8 @@ stop when the population grows over $1e6$ individuals:
 
 ```{r exp10000, echo = TRUE, eval = FALSE}
 ng <- 10000
-u <- allFitnessEffects(noIntGenes = c(rep(0.1, ng/2), rep(-0.1, ng/2)))
+u <- allFitnessEffects(noIntGenes = c(rep(0.1, ng/2), 
+                                      rep(-0.1, ng/2)))
 
 t_e_10000 <- system.time(
     e_10000 <- oncoSimulPop(5, u, model = "Exp", mu = 1e-7,
@@ -2302,14 +2315,14 @@ print(object.size(e_10000), units = "MB")
 ```
 
 Each simulation takes about 1 second but note that the number of clones
-for most simulations is already over 4000 and that the size of the return
+for most simulations is already over 4000 and that the size of the returned
 object is close to 1 GB (a more detailed explanation of where this 1 GB
 comes from is deferred until section \@ref(wheresizefrom)).
 
 
 #### Exponential, 10,000 genes, example 2 {#exp10000_2}
 
-We can decrease the size of the return object if we use the `keepEvery =
+We can decrease the size of the returned object if we use the `keepEvery =
 NA` argument (this setting was explained in detail in section
 \@ref(bench1)):
 
@@ -2361,7 +2374,8 @@ reasonable decision depends on the problem; see also below.
 
 ```{r exp50000, echo = TRUE, eval = FALSE}
 ng <- 50000
-u <- allFitnessEffects(noIntGenes = c(rep(0.1, ng/2), rep(-0.1, ng/2)))
+u <- allFitnessEffects(noIntGenes = c(rep(0.1, ng/2), 
+                                      rep(-0.1, ng/2)))
 t_e_50000 <- system.time(
     e_50000 <- oncoSimulPop(5,
                             u,
@@ -2394,7 +2408,7 @@ print(object.size(e_50000), units = "MB")
 ## 7598.6 Mb
 ```
 
-Of course, simulations now take longer and the size of the return
+Of course, simulations now take longer and the size of the returned
 object is over 7 GB (we are keeping over 7000 clones, even if when
 we prune all those that went extinct). 
 
@@ -2404,7 +2418,8 @@ What if we had not pruned?
 
 ```{r exp50000np, echo = TRUE, eval = FALSE}
 ng <- 50000
-u <- allFitnessEffects(noIntGenes = c(rep(0.1, ng/2), rep(-0.1, ng/2)))
+u <- allFitnessEffects(noIntGenes = c(rep(0.1, ng/2), 
+                                      rep(-0.1, ng/2)))
 t_e_50000np <- system.time(
     e_50000np <- oncoSimulPop(5,
                               u,
@@ -2449,7 +2464,8 @@ What about the `mutationPropGrowth` setting? We will rerun the example in
 ```{r exp50000mpg, echo = TRUE, eval = FALSE}
 
 ng <- 50000
-u <- allFitnessEffects(noIntGenes = c(rep(0.1, ng/2), rep(-0.1, ng/2)))
+u <- allFitnessEffects(noIntGenes = c(rep(0.1, ng/2), 
+                                      rep(-0.1, ng/2)))
 
 t_e_50000c <- system.time(
     e_50000c <- oncoSimulPop(5,
@@ -2491,7 +2507,7 @@ time and the size of the object increases by almost 3 GB.
 
 What about larger population sizes or larger mutation rates? The
 number of clones starts growing fast, which means much slower
-execution times and much larger return objects (see also the examples
+execution times and much larger returned objects (see also the examples
 below).
 
 
@@ -2512,7 +2528,8 @@ Let's start with  `mutationPropGrowth = FALSE` and `keepEvery = NA`:
 
 ```{r mc50000_1, echo = TRUE, eval = FALSE}
 ng <- 50000
-u <- allFitnessEffects(noIntGenes = c(rep(0.1, ng/2), rep(-0.1, ng/2)))
+u <- allFitnessEffects(noIntGenes = c(rep(0.1, ng/2), 
+                                      rep(-0.1, ng/2)))
 
 t_mc_50000_nmpg <- system.time(
     mc_50000_nmpg <- oncoSimulPop(5,
@@ -2586,7 +2603,7 @@ print(object.size(mc_50000_nmpg_k), units = "MB")
 ```
 
 Computing time increases slightly but the major effect is seen on
-the size of the return object, that increases by a factor of about
+the size of the returned object, that increases by a factor of about
 4x, up to 8 GB, corresponding to the increase in about 4x in the
 number of clones being tracked (see details of where size comes from in
 section \@ref(wheresizefrom)).
@@ -2599,7 +2616,8 @@ detection size by a factor of 3:
 
 ```{r mc50000_popx, echo = TRUE, eval = FALSE}
 ng <- 50000
-u <- allFitnessEffects(noIntGenes = c(rep(0.1, ng/2), rep(-0.1, ng/2)))
+u <- allFitnessEffects(noIntGenes = c(rep(0.1, ng/2), 
+                                      rep(-0.1, ng/2)))
 
 t_mc_50000_nmpg_3e6 <- system.time(
     mc_50000_nmpg_3e6 <- oncoSimulPop(5,
@@ -2643,8 +2661,6 @@ Let us use the same `detectionSize = 1e6` as in the first example
 (\@ref(mc50000ex1)), but with 5x the mutation rate:
 
 ```{r mc50000_mux, echo = TRUE, eval = FALSE}
-ng <- 50000
-u <- allFitnessEffects(noIntGenes = c(rep(0.1, ng/2), rep(-0.1, ng/2)))
 
 t_mc_50000_nmpg_5mu <- system.time(
     mc_50000_nmpg_5mu <- oncoSimulPop(5,
@@ -2677,22 +2693,23 @@ print(object.size(mc_50000_nmpg_5mu), units = "MB")
 ## 8314.4 Mb
 ``` 
 
-The number of clones we are tracking is about 4x the number of clones of
-the first example (\@ref(mc50000ex1)), and roughly similar to the number
-of clones of the second example (\@ref(mc50000ex2)), and size of return
-object is similar to that of the second example.  But computing time has
-increased by a factor of about 5x and iterations have increased by a
-factor of about 2x. Iterations increase because mutation is more frequent;
-in addition, at each sampling period each iteration needs to do more work
-as it needs to loop over a larger number of clones and this larger number
-includes clones that are not shown here, because they are pruned (they are
-extinct by the time we exit the simulation ---again, pruning is discussed
-with further details in \@ref(prune)).
+The number of clones we are tracking is about 4x the number of
+clones of the first example (\@ref(mc50000ex1)), and roughly similar
+to the number of clones of the second example (\@ref(mc50000ex2)),
+and size of the returned object is similar to that of the second
+example.  But computing time has increased by a factor of about 5x
+and iterations have increased by a factor of about 2x. Iterations
+increase because mutation is more frequent; in addition, at each
+sampling period each iteration needs to do more work as it needs to
+loop over a larger number of clones and this larger number includes
+clones that are not shown here, because they are pruned (they are
+extinct by the time we exit the simulation ---again, pruning is
+discussed with further details in \@ref(prune)).
 
 
 #### McFarland, 50,000 genes, example 5 {#mc50000ex5}
 
-Finally, let's run the above example but with `keepEvery = 1`:
+Now let's run the above example but with `keepEvery = 1`:
 
 ```{r mcf5muk, echo = TRUE, eval = FALSE}
 t_mc_50000_nmpg_5mu_k <- system.time(
@@ -2729,7 +2746,7 @@ print(object.size(mc_50000_nmpg_5mu_k), units = "MB")
 
 We have already seen these effects before in section
 \@ref(mc50000ex2): using `keepEvery = 1` leads to a slight increase
-in execution time. What is really affected is the size of the return
+in execution time. What is really affected is the size of the returned
 object which increases by a factor of about 3x (and is now over
 20GB). That 3x corresponds, of course, to the increase in the number
 of clones being tracked. This, by the way, also allows us to
@@ -2748,8 +2765,6 @@ default of `mutationPropGrowth = TRUE`:
 
 
 ```{r mc50000_2, echo = TRUE, eval = FALSE}
-ng <- 50000
-u <- allFitnessEffects(noIntGenes = c(rep(0.1, ng/2), rep(-0.1, ng/2)))
 
 t_mc_50000 <- system.time(
     mc_50000 <- oncoSimulPop(5,
@@ -2784,7 +2799,7 @@ print(object.size(mc_50000), units = "MB")
 ```
 
 Note the huge increase in computing time (related of course to the huge
-increase in number of iterations) and in the size of the return object: we
+increase in number of iterations) and in the size of the returned object: we
 have gone from having to track about 2000 clones to tracking over 12000
 clones even when we prune all clones without descendants.
 
@@ -2829,7 +2844,7 @@ print(object.size(mc_50000_nmpg_5mu_k), units = "MB")
 ```
 
 Note we use only two replicates, since those two already lead to a
-24 GB return object as we are tracking more than 60,000 clones, more
+24 GB returned object as we are tracking more than 60,000 clones, more
 than twice those with $s=0.1$.  The reason for the difference in
 number of clones and iterations is of course the change from $s=0.1$
 to $s=0.05$: under the McFarland model to reach population sizes of
@@ -2881,7 +2896,7 @@ print(object.size(mc_50000_nmpg), units = "MB")
 ```
 Using $s=0.05$ leads to a large increase in final time and number of
 iterations. However, as we are using the `keepEvery = NA` setting,
-the increase in number of clones tracked and in size of return
+the increase in number of clones tracked and in size of returned
 object is relatively small.
 
 
@@ -2889,7 +2904,7 @@ object is relatively small.
 
 ### The different consequences of `keepEvery = NA` in the Exp and McFL models {#kpexpmc}
 
-We have seen that `keepEvery = NA` often leads to much smaller return
+We have seen that `keepEvery = NA` often leads to much smaller returned
 objects when using the McFarland model than when using the Exp model. Why?
 Because in the McFarland model there is strong competition and there can
 be complete clonal sweeps so that in extreme cases a single clone might be
@@ -2978,7 +2993,7 @@ often as that in the other two matrices (`pops.by.time` and
 #### Interlude: where is that 1 GB coming from? {#wheresizefrom}
 
 In section \@ref(exp100001) we have seen an apparently innocuous
-simulation producing a return object of almost 1 GB. Where is that coming
+simulation producing a returned object of almost 1 GB. Where is that coming
 from? It means that each simulation produced almost 200 MB of output.
 
 Let us look at one simulation in more detail:
@@ -7942,7 +7957,7 @@ In @szendro_predictability_2013 "(...) paths defined as the time
 ordered sets of genotypes that at some time contain the largest
 subpopulation" are called "path of the maximum" (POM) (see their
 p. 572). In our case, POM are obtained from the `pops.by.time`
-return object (i.e., from the genotypes at each of the sampling
+returned object (i.e., from the genotypes at each of the sampling
 times) and, thus, the POMs will be affected by how often we sample
 and keep samples (arguments `sampleEvery` and `keepEvery`), since we
 are running a continuous time process.
@@ -8093,23 +8108,33 @@ Algorithm 5 in the supplementary material).
 
 ## Does OncoSimulR keep track of individuals or of clones? And how can it keep track of such large populations? {#trackindivs}
 
-OncoSimulR keeps track of clones, where a clone is a set of cells that are
-genetically identical (note that this means completely identical over the
-whole set of genes/markers you are using; see section
-\@ref(meaningclone)).  
+OncoSimulR keeps track of clones, where a clone is a set of cells
+that are genetically identical (note that this means completely
+identical over the whole set of genes/markers you are using; see
+section \@ref(meaningclone)). We do not need to keep track of
+individual cells because, for all purposes, and since we do not
+consider spatial structure, two or more cells that are genetically
+identical are interchangeable. This means, for instance, that the
+computational cost of keeping a population of a single clone with 1
+individual or with $10^9$ individuals is exactly the same: we just
+keep track of the genotype and the number of cells. (Sure, it is
+much more likely we will see a mutation soon in a clone with $10^9$
+cells than in a clone with 1, but that is a different issue.)
+
+
+Of course, the entities that die, reproduce, and mutate are
+individual cells. This is of course dealt with by tracking clones
+(as is clearly shown by Algorithms 4 and 5 in @Mather2012). Tracking
+individuals, as individuals, would provide no advantage, but would
+increase the computational burden by many orders of magnitude.
+
+
+
 
 <!-- As we are interested in examining the effects of selection, mutation, -->
 <!-- keeping track of the parent-child relationships between clones, etc, and -->
 <!-- thus we must keep track of the complete set of clones. -->
 
-We do not need to keep track of individual cells because, for all
-purposes, and since we do not consider spatial structure, two or more
-cells that are genetically identical are interchangeable. This means, for
-instance, that the computational cost of keeping a population of a single
-clone with 1 individual or with $10^9$ individuals is exactly the same: we
-just keep track of the genotype and the number of cells. (Sure, it is much
-more likely we will see a mutation soon in a clone with $10^9$ cells than
-in a clone with 1, but that is a different issue.)
 
 
 <!-- (or haplotype if -->
