@@ -23,7 +23,7 @@
 
 to_Magellan <- function(x, file,
                         max_num_genotypes = 2000) {
-    ## This is stupid if we already have, as entry, an object from
+    ## Go directly if you have, as entry, an object from
     ## rfitness!! to_Fitness_Matrix can be very slow.
     if(is.null(file)) {
         file <- tempfile()
@@ -44,7 +44,8 @@ to_Magellan <- function(x, file,
 to_Fitness_Matrix <- function(x, max_num_genotypes) {
     ## A general converter. Ready to be used by plotFitnessLandscape and
     ## Magellan exporter.
-    
+
+    ## FIXME: really, some of this is inefficient. Very. Fix it.
     if( (inherits(x, "genotype_fitness_matrix")) ||
         ( (is.matrix(x) || is.data.frame(x)) && (ncol(x) > 2) ) ) {
         ## Why this? We go back and forth twice. We need both things. We
@@ -257,7 +258,7 @@ allGenotypes_to_matrix <- function(x) {
     splitted_genots <- lapply(x$Genotype,
                              function(z) nice.vector.eo(z, ","))
 
-    all_genes <- unique(unlist(splitted_genots))
+    all_genes <- sort(unique(unlist(splitted_genots)))
 
     m <- matrix(0, nrow = length(splitted_genots), ncol = length(all_genes))
     the_match <- lapply(splitted_genots,
@@ -285,7 +286,8 @@ Magellan_stats <- function(x, max_num_genotypes = 2000,
                            verbose = FALSE,
                            use_log = TRUE,
                            short = TRUE,
-                           fl_statistics = "fl_statistics") { # nocov start
+                           fl_statistics = "fl_statistics",
+                           replace_missing = FALSE) { # nocov start
     ## I always use 
     ## if(!is.null(x) && is.null(file))
     ##     stop("one of object or file name")
@@ -306,23 +308,43 @@ Magellan_stats <- function(x, max_num_genotypes = 2000,
         shortarg <- NULL
     }
     
+    if(replace_missing) {
+        zarg <- "-z"
+    } else {
+        zarg <- NULL
+    }
+
     to_Magellan(x, fn, max_num_genotypes = max_num_genotypes)
-    call_M <- system2(fl_statistics, args = paste(fn, shortarg, logarg, "-o", fnret))
+    ## newer versions of Magellan provide some extra values to standard output
+    call_M <- system2(fl_statistics,
+                      args = paste(fn, shortarg, logarg, zarg, "-o", fnret),
+                      stdout = NULL)
     if(short) {
-        tmp <- as.vector(read.table(fnret, skip = 1, header = TRUE)[-1])
+        ## tmp <- as.vector(read.table(fnret, skip = 1, header = TRUE)[-1])
+        
+        tmp <- as.vector(read.table(fnret, skip = 1, header = TRUE)[c(-1)])
         ## Make names more explicit, but check we have what we think we have
-        stopifnot(length(tmp) == 23)
-        stopifnot(identical(names(tmp),
+        ## New versions of Magellan produce different output apparently of variable length
+        stopifnot(length(tmp) >= 23) ## 23) ## variable length
+        stopifnot(identical(names(tmp)[1:13], ## only some
                             c("ngeno", "npeaks", "nsinks", "gamma", "gamma.", "r.s",
                               "nchains", "nsteps", "nori", "depth", "magn", "sign",
-                              "rsign", "w.1.", "w.2.", "w.3..", "mode_w", "s.1.",
-                              "s.2.", "s.3..", "mode_s", "pairs_s", "outD_v")))
-        names(tmp) <- c("n_genotypes", "n_peaks", "n_sinks", "gamma", "gamma_star",
+                              "rsign"))) ## , "w.1.", "w.2.", "w.3..", "mode_w", "s.1.",
+        ## "s.2.", "s.3..", "mode_s", "pairs_s", "outD_v")))
+        if(length(tmp) >= 24) ## the new version
+            stopifnot(identical(names(tmp)[c(20, 24)],
+                                c("steps_m", "mProbOpt_0")))
+        ## steps_m: the mean number of steps over the entire landscape to
+        ## reach the global optimum
+        ## mProbOpt_0: The mean probability to
+        ## reach that optimum (again averaged over the entire landscape).
+        ## but if there are multiple optima, there are many of these
+        names(tmp)[1:13] <- c("n_genotypes", "n_peaks", "n_sinks", "gamma", "gamma_star",
                         "r/s","n_chains", "n_steps", "n_origins", "max_depth",
-                        "epist_magn", "epist_sign", "epist_rsign",
-                        "walsh_coef_1", "walsh_coef_2", "walsh_coef_3", "mode_walsh",
-                        "synerg_coef_1", "synerg_coef_2", "synerg_coef_3", "mode_synerg",
-                        "std_dev_pairs", "var_outdegree")
+                        "epist_magn", "epist_sign", "epist_rsign")## ,
+                        ## "walsh_coef_1", "walsh_coef_2", "walsh_coef_3", "mode_walsh",
+                        ## "synerg_coef_1", "synerg_coef_2", "synerg_coef_3", "mode_synerg",
+        ## "std_dev_pairs", "var_outdegree")
     } else {
         tmp <- readLines(fnret)
     }

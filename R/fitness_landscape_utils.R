@@ -18,6 +18,9 @@
 
 ## FIXME: show only accessible paths? 
 
+## FIXME: if using only_accessible, maybe we
+## can try to use fast_peaks, and use the slower
+## approach as fallback (if identical fitness)
 plotFitnessLandscape <- function(x, show_labels = TRUE,
                                  col = c("green4", "red", "yellow"),
                                  lty = c(1, 2, 3), use_ggrepel = FALSE,
@@ -225,12 +228,44 @@ filter_inaccessible <- function(x, accessible_th) {
 
 
 ## wrapper to the C++ code
-wrap_accessibleGenotypes <- function(x, th) {
+fast_peaks <- function(x, th) {
     ## x is the fitness matrix, not adjacency matrix
+
+    ## Only works if no connected genotypes that form maxima. I.e., no
+    ## identical fitness. Do a sufficient check for it (too inclusive, though)
+    ## And only under no back mutation
+
+    original_pos <- 1:nrow(x)
     numMut <- rowSums(x[, -ncol(x)])
     o_numMut <- order(numMut)
     x <- x[o_numMut, ]
     numMut <- numMut[o_numMut]
+    f <- x[, ncol(x)]
+    ## Two assumptions
+    stopifnot(numMut[1] == 0)
+    ## make sure no repeated in those that could be maxima
+    if(any(duplicated(f[f >= f[1]])))
+        stop("There could be several connected maxima genotypes.",
+             " This function is not safe to use.")
+    
+    y <- x[, -ncol(x)]
+    storage.mode(y) <- "integer"
+    original_pos <- original_pos[o_numMut]
+    return(sort(original_pos[peaksLandscape(y, f,
+                          as.integer(numMut),
+                          th)]))
+}
+
+
+## wrapper to the C++ code
+wrap_accessibleGenotypes <- function(x, th) {
+    ## x is the fitness matrix, not adjacency matrix
+    original_pos <- 1:nrow(x)
+    numMut <- rowSums(x[, -ncol(x)])
+    o_numMut <- order(numMut)
+    x <- x[o_numMut, ]
+    numMut <- numMut[o_numMut]
+    original_pos <- original_pos[o_numMut]
     
     y <- x[, -ncol(x)]
     storage.mode(y) <- "integer"
@@ -238,7 +273,29 @@ wrap_accessibleGenotypes <- function(x, th) {
     acc <- accessibleGenotypes(y, x[, ncol(x)],
                                as.integer(numMut),
                                th)
-    return(acc[acc > 0])
+    ## return(acc[acc > 0])
+    return(sort(original_pos[acc[acc > 0]]))
+}
+
+
+## wrapper to the C++ code; the former one, only for testing. Remove
+## eventually FIXME
+wrap_accessibleGenotypes_former <- function(x, th) {
+    ## x is the fitness matrix, not adjacency matrix
+    original_pos <- 1:nrow(x)
+    numMut <- rowSums(x[, -ncol(x)])
+    o_numMut <- order(numMut)
+    x <- x[o_numMut, ]
+    numMut <- numMut[o_numMut]
+    original_pos <- original_pos[o_numMut]
+    
+    y <- x[, -ncol(x)]
+    storage.mode(y) <- "integer"
+
+    acc <- accessibleGenotypes_former(y, x[, ncol(x)],
+                                      as.integer(numMut),
+                                      th)
+    return(sort(original_pos[acc[acc > 0]]))
 }
 
 ## A transitional function
@@ -378,8 +435,10 @@ generate_matrix_genotypes <- function(g) {
 }
 
 
-
-genot_to_adj_mat <- function(x) {
+## The R version. See also the C++ one
+genot_to_adj_mat_R <- function(x) {
+    ## x is the fitness matrix
+    
     ## FIXME this can take about 23% of the time of the ggplot call.
     ## But them, we are quickly constructing a 2000*2000 matrix
     ## Given a genotype matrix, as given by allGenotypes_to_matrix, produce a
@@ -390,13 +449,16 @@ genot_to_adj_mat <- function(x) {
     ## FIXME: code is now in place to do all of this in C++
     
     ## Make sure sorted, so ancestors always before descendants
-    rs0 <- rowSums(x[, -ncol(x)])
-    x <- x[order(rs0), ]
-    rm(rs0)
+    original_pos <- 1:nrow(x)
+    numMut <- rowSums(x[, -ncol(x)])
+    o_numMut <- order(numMut)
+    x <- x[o_numMut, ]
+    original_pos <- original_pos[o_numMut]
+    rm(numMut)
     
     y <- x[, -ncol(x)]
     f <- x[, ncol(x)]
-    rs <- rowSums(y)
+    rs <- rowSums(y) ## redo for paranoia; could have ordered numMut
 
     ## Move this to C++?
     adm <- matrix(NA, nrow = length(rs), ncol = length(rs))
@@ -408,8 +470,50 @@ genot_to_adj_mat <- function(x) {
             if(sumdiff == 1) adm[i, j] <- (f[j] - f[i])
         }
     }
+    colnames(adm) <- rownames(adm) <- original_pos
     return(adm)
 }
+
+genot_to_adj_mat <- function(x) {
+    ## x is the fitness matrix
+
+    ## adding column and row names should rarely be necessary
+    ## as these are internal functions, etc. But just in case
+    original_pos <- 1:nrow(x)
+    numMut <- rowSums(x[, -ncol(x)])
+    o_numMut <- order(numMut)
+    x <- x[o_numMut, ]
+    numMut <- numMut[o_numMut]
+    original_pos <- original_pos[o_numMut]
+    
+    y <- x[, -ncol(x)]
+    storage.mode(y) <- "integer"
+
+    adm <- genot2AdjMat(y, x[, ncol(x)],
+                        as.integer(numMut))
+    colnames(adm) <- rownames(adm) <- original_pos
+    return(adm)
+}
+
+
+## ## to move above to C++ note that loop can be
+## for(i in 1:length(rs)) { ## i is the current genotype
+##     for(j in (i:length(rs))) {
+##         if(rs[j] > (rs[i] + 1)) break;
+##         else if(rs[j] == (rs[i] + 1)) {
+##             ## and use here my HammingDistance function
+##             ## sumdiff <- sum(abs(y[j, ] - y[i, ]))
+##             ## if(sumdiff == 1) adm[i, j] <- (f[j] - f[i])
+##             if(HammingDistance(y[j, ], y[i, ]) == 1) adm[i, j] = (f[j] - f[i]);
+##             }
+##     }
+## }
+
+## actually, all that is already in accessibleGenotypes except for the
+## filling up of adm.
+
+
+
 
 
 peak_valley <- function(x) {
@@ -466,7 +570,13 @@ peak_valley <- function(x) {
     }
     bad_fwd <- vector("integer", nrow(x))
     for(i in 1:nrow(x)) {
+        ## Eh, why any? All.
+        ## Nope, any: we want peaks in general, not just
+        ## under assumption of "no back mutation"
+        ## We get a different result when we restrict to accessible
+        ## because all < 0 in adjacency are turned to NAs.
         if( any(x[, i] < 0, na.rm = TRUE) || bad_fwd[i] ) {
+        ## if( all(x[, i] < 0, na.rm = TRUE) ) {
             ## this node is bad. Any descendant with fitness >= is bad
             bad_fwd[i] <- 1
             reach_f <- which(x[i, ] <= 0)
@@ -478,3 +588,36 @@ peak_valley <- function(x) {
     peak <- setdiff(candidate, bad)
     return(list(peak = peak, valley = valley))
 }
+
+
+
+## For the future
+## ## data.frame (two columns: genotype with "," and Fitness) -> fitness graph (DAG)
+## ## Return an adj matrix of the fitness graph from a fitness
+## ## landscape
+## ## Based on code in plotFitnessLandscape
+## flandscape_to_fgraph <- function(afe) {
+##     gfm <- OncoSimulR:::allGenotypes_to_matrix(afe)
+##     ## mutated <- rowSums(gfm[, -ncol(gfm)])
+##     gaj <- OncoSimulR:::genot_to_adj_mat(gfm)
+##     gaj2 <- OncoSimulR:::filter_inaccessible(gaj, 0)
+##     stopifnot(all(na.omit(as.vector(gaj == gaj2))))
+##     remaining <- as.numeric(colnames(gaj2))
+##     ## mutated <- mutated[remaining]
+##     afe <- afe[remaining, , drop = FALSE]
+##     ## vv <- which(!is.na(gaj2), arr.ind = TRUE)
+
+##     gaj2 <- gaj2
+##     gaj2[is.na(gaj2)] <- 0
+##     gaj2[gaj2 > 0] <- 1
+##     colnames(gaj2) <- rownames(gaj2) <- afe[, "Genotype"]
+##     return(gaj2)
+## }
+## ## This could be done easily in C++, taking care of row/colnames at end,
+## ## without moving around the full adjacency matrix.
+## ## Skeleton for C++
+## ## a call to accessibleGenotypesPeaksLandscape
+## ## (with another argument or changing the returnpeaks by a three value thing)
+## ## after done with first loop, 
+## ## return the matrix adm[accessible > 0, accessible >0]
+## ## only need care with row/colnames

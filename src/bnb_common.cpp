@@ -238,11 +238,28 @@ double ti_nextTime_tmax_2_st(const spParamsP& spP,
 	print_spP(spP);
 	throw std::range_error("ti: ti not finite");
       }
-      if(ti == 0.0) {
+      if((ti == 0.0) || (ti <= DBL_MIN)) {
+// #ifdef DEBUGW
+//  // this is too verbose for routine use
+// 	std::string ti_dbl_comp;
+// 	if( ti == DBL_MIN) {
+// 	  ti_dbl_comp = "ti_equal_DBL_MIN";
+// 	  DP2(ti);
+// 	} else if (ti == 0.0) {
+// 	  ti_dbl_comp = "ti_equal_0.0";
+// 	} else if ( (ti < DBL_MIN) && (ti > 0.0) ) {
+// 	  ti_dbl_comp = "ti_gt_0.0_lt_DBL_MIN";
+// 	  DP2(ti);
+// 	}  else {
+// 	  ti_dbl_comp = "IMPOSSIBLE!";
+// 	}
+// 	DP2(ti_dbl_comp);
+// #endif
 #ifdef DEBUGV	
 	// FIXME: pass verbosity as argument, and return the warning
 	// if set to more than 0?
-	Rcpp::Rcout << "\n\n\n WARNING: ti == 0. Setting it to DBL_MIN \n"; 
+	Rcpp::Rcout << "\n\n\n WARNING: ti == 0. Setting it to DBL_MIN \n";
+
 	double eq12 = pow( (spP.R - spP.W + 2.0 * spP.death) / 
 			   (spP.R + spP.W - 2.0 * spP.birth) , spP.popSize);
 
@@ -279,10 +296,18 @@ double ti_nextTime_tmax_2_st(const spParamsP& spP,
 	// Rcpp::Rcout << "ti set to DBL_MIN\n";
 	// Yes, abort because o.w. we can repeat it many, manu times
 	// throw std::range_error("ti set to DBL_MIN");
+	// Even just touching DBL_MIN is enough to want a rerunExcept;
+	// no need for it to be 0.0.
 	throw rerunExcept("ti set to DBL_MIN");
       }
-      if(ti < 0.001) ++ti_e3;
+      if(ti < (2*DBL_MIN)) ++ti_e3; // Counting how often this happens.
+      // Can be smaller than the ti_dbl_min count
       ti += currentTime;
+      // But we can still have issues here if the difference is too small
+      if( (ti <= currentTime) ) {
+	// Rcpp::Rcout << "\n (ti <= currentTime): expect problems\n";
+	throw rerunExcept("ti <= currentTime");
+      }
     } 
   }
   return ti;
@@ -1106,3 +1131,26 @@ void fill_SStats(Rcpp::NumericMatrix& perSampleStats,
     perSampleStats(i, 4) = static_cast<double>(sampleNDrLargestPop[i]);
   }
 }
+
+// Do not use this routinely. Too expensive and not needed.
+void detect_ti_duplicates(const std::multimap<double, int>& m,
+			  const double ti,
+			  const int species) {
+
+  double maxti = m.rbegin()->first;
+  if((ti < maxti) && (m.count(ti) > 1)) {
+    Rcpp::Rcout << "\n *** duplicated ti for species " << species << "\n";
+
+    std::multimap<double, int>::const_iterator it = m.lower_bound(ti);
+    std::multimap<double, int>::const_iterator it2 = m.upper_bound(ti);
+
+    while(it != it2) {
+      Rcpp::Rcout << "\tgenotype: " << (it->second) << "; time: " <<
+	(it->first) << "\n";
+      ++it;
+    }
+    Rcpp::Rcout << "\n\n\n";
+  }
+}
+
+
