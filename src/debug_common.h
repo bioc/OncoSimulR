@@ -3,7 +3,7 @@
 
 #include<Rcpp.h>
 
-//#define DEBUGZ
+// #define DEBUGZ
 // #define DEBUGV
 #define DEBUGW
 

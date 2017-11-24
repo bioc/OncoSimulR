@@ -3193,9 +3193,9 @@ simulation. This is much smaller than the `pops.by.time` or
 launch, say, 1000 simulations via `oncoSimulPop`. That is why the
 default is `keepPhylog = FALSE` as this information is not needed as
 often as that in the other two matrices (`pops.by.time` and
-`Genotypes`). However, if you plan to measure evolutionary predictability
-using Lines of Descent, or LOD (section \@ref(evolpredszend)) you should
-run simulations with `keepPhylog = TRUE`.
+`Genotypes`). <!-- However, if you plan to measure evolutionary predictability -->
+<!-- using Lines of Descent, or LOD (section \@ref(evolpredszend)) you should -->
+<!-- run simulations with `keepPhylog = TRUE`. -->
 
 
 
@@ -3570,14 +3570,19 @@ fem4 <- allFitnessEffects(genotFitness = m4)
 wanted.)
 
 
-That's it. You can plot that fitnessEffects object
+That's it. You can try to plot that fitnessEffects object
 ```{r}
-plot(fem4)
+try(plot(fem4))
 ``` 
 
-In this case, that plot is not very interesting (compare with the
-`plot(pancr)` we saw in \@ref(quickexample) or the plots in
-\@ref(posetslong)). 
+In this case, you probably want to plot the fitness landscape. <!--  that plot is not very interesting (compare with the -->
+<!-- `plot(pancr)` we saw in \@ref(quickexample) or the plots in -->
+<!-- \@ref(posetslong)). --> 
+
+
+```{r, fig.width=6.5, fig.height = 6.5}
+plotFitnessLandscape(evalAllGenotypes(fem4))
+``` 
 
 You can also check what OncoSimulR thinks the fitnesses are, with the
 `evalAllGenotypes` function that we will use repeatedly below
@@ -3605,7 +3610,7 @@ genotypes (we will assume that the missing genotypes have fitness 1):
 m6 <- cbind(c(1, 1), c(1, 0), c(2, 3))
 fem6 <- allFitnessEffects(genotFitness = m6)
 evalAllGenotypes(fem6, addwt = TRUE)
-plot(fem6)
+## plot(fem6)
 ```
 
 ```{r, fig.width=6.5, fig.height = 6.5}
@@ -3616,14 +3621,47 @@ plotFitnessLandscape(evalAllGenotypes(fem6))
 This way of giving a fitness specification to OncoSimulR might be
 ideal if you directly generate random mappings of genotypes to
 fitness (or random fitness landscapes), as we will do in section
-\@ref(gener-fit-land). (Note for curious readers: actually, what we
-do now is convert the table of fitness of genotypes to a fitness
-specification with all possible epistatic interactions; look
-at the `fem6` object).
+\@ref(gener-fit-land). Specially when the fitness landscape contains
+many non-viable genotypes (which are considered those with fitness
+---birth rate--- $<1e-9$) this can result in considerable savings as
+we only need to check the fitness of the viable genotypes in a table
+(a C++ map). Note, however, that using the Bozic model with the
+fitness landscape specification is not tested. In addition, for
+speed, missing genotypes from the fitness landscape specification
+are taken to be non-viable genotypes (**beware!! this is a breaking
+change relative to versions < 2.9.1**)[^flfast].
+
+[^flfast]: Note for curious readers: it used to be the case that we
+converted the table of fitness of genotypes to a fitness
+specification with all possible epistatic interactions; you can take
+a look at the test file `test.genot_fitness_to_epistasis.R` that
+uses the `fem6` object. We no longer do that but instead pass
+directly the fitness landscape.
 
 
-We will see an example of this way of passing fitness again in
-\@ref(bauer), where we will compare it with the lego system.
+<!-- How to simulate Big Bang: start from some initMutant, say S, so that -->
+<!-- S A B C ...  Fitness -->
+<!-- 1 0 0 0 0    >1 -->
+
+<!-- and add that column of S with 1 to all genotypes from fitness -->
+
+<!-- * What happens with mutator?   -->
+<!--   - the fl specification? now tested-->
+<!--   - do we have modules? nope in fitness yes in mutator -->
+
+
+<!-- Bozic and fitness landscape specification -->
+<!-- if(nrow(rFE$fitnessLandscape_df) > 0) -->
+<!--             warning("Bozic model passing a fitness landscape will not work", -->
+<!--                     " for now.") -->
+<!--         ## FIXME: bozic and fitness landscape -->
+<!--         ## the issue is that in the C++ code we directly do -->
+<!--         ## s = birth rate - 1 -->
+<!--         ## but we would need something different -->
+<!--         ## Can be done going through epistasis, etc -->
+
+<!-- We will see an example of this way of passing fitness again in -->
+<!-- \@ref(bauer), where we will compare it with the lego system. -->
 
 
 <!-- % Please see the documentation of `allFitnessEffects` for further -->
@@ -3710,6 +3748,13 @@ For the Bozic model [@Bozic2010], however, the birth rate is set to
 1, and the death rate then becomes $\prod (1 - s_i)$.
 
 [^2]: You can change this if you really want to. 
+
+<!-- On their interpretation/naming: -->
+<!-- I do \prod (1 + s_i). The s_i I could call "selection coefficients", -->
+<!--      as Gillespie, 1993; or "mutation effects", as in Fogle et al., 2008, -->
+<!--      or Dayarian and Shraiman, 2014. -->
+<!--    - The multiplicative \Prod (1+ s_j) is typicalone, as in Beerenwinkel -->
+<!--      2007, PLoS Comp Biol -->
 
 
 ### McFarland parameterization {#mcfl}
@@ -8193,35 +8238,57 @@ measure of diversity of the actual genotypes sampled.
 In @szendro_predictability_2013 "(...) paths defined as the time
 ordered sets of genotypes that at some time contain the largest
 subpopulation" are called "Path of the Maximum" (POM) (see their
-p. 572). In our case, POM are obtained from the `pops.by.time`
-returned object (i.e., from the genotypes at each of the sampling
-times) and, thus, the POMs will be affected by how often we sample
-and keep samples (arguments `sampleEvery` and `keepEvery`), since we
+p. 572). In our case, POM are obtained by finding the clone with
+largest population size whenever we sample and, thus, <!-- from the
+`pops.by.time` --> <!-- returned object (i.e., from the genotypes at
+each of the sampling --> <!-- times) and, thus, --> the POMs will be
+affected by how often we sample (argument `sampleEvery`), since we
 are running a continuous time process.
 
 
-@szendro_predictability_2013 also define Lines of Descent (LODs) which
-"(...)  represent the lineages that arrive at the most populated genotype
-at the final time". In that same page (572) they provide the details on
-how the LODs are obtained. My implementation is not exactly identical to
-the definition given in p. 572 of Szendro et al. First, in case this might
-be useful, for each simulation I keep all the paths that "(...) arrive at
-the most populated genotype at the final time" (first paragraph in p. 572
-of Szendro et al.), whereas they only keep one (see second column of
-p. 572). However, I do provide a single LOD for each run, too. This is the
-first path to arrive at the genotype that eventually becomes the most
-populated genotype at the final time (and, in this sense, agrees with the
-LOD of Szendro et al.). However, in contrast to what is apparently done in
-Szendro ("A given genotype may undergo several episodes of colonization
-and extinction that are stored by the algorithm, and the last episode
-before the colonization of the final state is used to construct the
-step."), I do not check that this genotype (which is the one that will
-become the most populated at final time) does not become extinct before
-the final colonization. So there could be other paths (all in `all_paths`)
-that are actually the one(s) that are colonizers of the most populated
-genotype (with no extinction before the final colonization). Obtaining LOD
-requires that the simulations be run with `keepPhylog = TRUE` (we need the
-genealogy of clones).
+@szendro_predictability_2013 also define Lines of Descent (LODs)
+which "(...)  represent the lineages that arrive at the most
+populated genotype at the final time". In that same page (572) they
+provide the details on how the LODs are obtained. Starting with
+version 2.9.2 of OncoSimulR I only provide an implementation where a
+single LOD per simulation is returned, with the same meaning as in
+@szendro_predictability_2013.
+
+<!-- I provide two -->
+<!-- implementations, one where a single LOD per simulation is returned, -->
+<!-- with the same meaning as in @szendro_predictability_2013, and -->
+<!-- another where I keep all the paths that "(...) arrive at the most -->
+<!-- populated genotype at the final time" (first paragraph in p. 572 of -->
+<!-- Szendro et al.). We can also obtain a single LOD that is the first -->
+<!-- path to arrive at the genotype that eventually becomes the most -->
+<!-- populated genotype at the final time (and, in this sense, agrees -->
+<!-- with the LOD of Szendro et al.). See the help file for details. -->
+<!-- Obtaining LOD requires that the simulations be run with `keepPhylog -->
+<!-- = TRUE` (we need the genealogy of clones). -->
+
+
+<!-- My implementation is not exactly identical to --> <!-- the
+definition given in p. 572 of Szendro et al. First, in case this
+might --> <!-- be useful, for each simulation I keep all the paths
+that "(...) arrive at --> <!-- the most populated genotype at the
+final time" (first paragraph in p. 572 --> <!-- of Szendro et al.),
+whereas they only keep one (see second column of --> <!--
+p. 572). However, I do provide a single LOD for each run, too. This
+is the --> <!-- first path to arrive at the genotype that eventually
+becomes the most --> <!-- populated genotype at the final time (and,
+in this sense, agrees with the --> <!-- LOD of Szendro et
+al.). However, in contrast to what is apparently done in --> <!--
+Szendro ("A given genotype may undergo several episodes of
+colonization --> <!-- and extinction that are stored by the
+algorithm, and the last episode --> <!-- before the colonization of
+the final state is used to construct the --> <!-- step."), I do not
+check that this genotype (which is the one that will --> <!-- become
+the most populated at final time) does not become extinct before -->
+<!-- the final colonization. So there could be other paths (all in
+`all_paths`) --> <!-- that are actually the one(s) that are
+colonizers of the most populated --> <!-- genotype (with no
+extinction before the final --> <!-- colonization). -->
+
 
 <!-- My implementation is not exactly identical to their -->
 <!-- definition. My `lod_single` is the first path to arrive at the genotype that -->
@@ -8246,8 +8313,8 @@ genealogy of clones).
 
 
 To briefly show some output, we will use again the \@ref(pancreas)
-example. Note that using LOD requires running the simulations with
-`keepPhylog = TRUE`.
+example. <!-- Note that using LOD requires running the simulations with -->
+<!-- `keepPhylog = TRUE`. -->
 
 
 ```{r lod_pom_ex}
@@ -8259,14 +8326,12 @@ pancr <- allFitnessEffects(
                          rep("PXDN", 3), rep("TGFBR2", 2)),
                s = 0.05, sh = -0.3, typeDep = "MN"))
 
-pancr16 <- oncoSimulPop(16, pancr, model = "Exp", keepPhylog = TRUE,
+pancr16 <- oncoSimulPop(16, pancr, model = "Exp",
                         mc.cores = 2)
 
 ## Look a the first POM 
 str(POM(pancr16)[1:3])
 
-## Note here that for each simulation there is a "all_paths" and
-## a "lod_single", as explained above
 LOD(pancr16)[1:2]
 
 ## The diversity of LOD (lod_single) and POM might or might not

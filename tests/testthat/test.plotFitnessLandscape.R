@@ -1,3 +1,5 @@
+## This actually tests much more than plotFitnessLandscape
+cat(paste("\n Starting plotFitnessLandscape at", date()))
 test_that("Exercise plotting and dealing with different matrix input", {
     r1 <- rfitness(4)
     expect_silent(plot(r1))
@@ -12,15 +14,27 @@ test_that("Exercise plotting and dealing with different matrix input", {
 
     m6 <- cbind(c(0, 1, 0, 1), c(0, 0, 1, 1), c(1, 2, 3, 5.5))
     expect_message(plotFitnessLandscape(m6),
-                   "Setting/resetting gene names because", fixed = TRUE)
+                   "No column names:", fixed = TRUE)
 
+    ## the next are so ill formed that they should not be accepted
     m7 <- cbind(c(0, 1, 0, 1), c(0, 0, 1, 1), F = c(1, 2, 3, 5.5))
-    expect_message(plotFitnessLandscape(m7),
-                   "Setting/resetting gene names because", fixed = TRUE)
+    expect_error(plotFitnessLandscape(m7),
+                    "duplicated column names", fixed = TRUE)
 
+    ## zz: why isn't this working?
     m8 <- cbind(A = c(0, 1, 0, 1), c(0, 0, 1, 1), F = c(1, 2, 3, 5.5))
-    expect_message(plotFitnessLandscape(m8),
-                   "Setting/resetting gene names because", fixed = TRUE)
+    expect_warning(plotFitnessLandscape(m8),
+                   "One column named ''", fixed = TRUE)
+
+    m88 <- cbind(B = c(0, 1, 0, 1), c(0, 0, 1, 1), F = c(1, 2, 3, 5.5))
+    expect_identical(as.data.frame(
+        evalAllGenotypes(allFitnessEffects(genotFitness = m88),
+                                      addwt = TRUE)),
+                     data.frame(Genotype = c("WT", "A", "B", "A, B"),
+                                Fitness = c(1, 3, 2, 5.5),
+                                stringsAsFactors = FALSE))
+    expect_warning(plotFitnessLandscape(m88),
+                   "One column named ''", fixed = TRUE)
 
     
     ## Specify fitness with allFitnessEffects, and plot it
@@ -34,6 +48,11 @@ test_that("Exercise plotting and dealing with different matrix input", {
     expect_silent(plotFitnessLandscape(evalAllGenotypes(fe, order = FALSE)))
     ## more ggrepel
     expect_silent(plot(evalAllGenotypes(fe, order = FALSE), use_ggrepel = TRUE))
+
+    m98 <- cbind(B = c(2, 1, 0, 1), c(0, 0, 1, 1), F = c(1, 2, 3, 5.5))
+    expect_error(allFitnessEffects(genotFitness = m98),
+                 "First ncol - 1 entries not in ",
+                 fixed = TRUE)
 })
 
 
@@ -720,3 +739,4 @@ test_that("Some random checks of the fast peaks function", {
         }
     }
 })
+cat(paste("\n Ending plotFitnessLandscape at", date()), "\n")

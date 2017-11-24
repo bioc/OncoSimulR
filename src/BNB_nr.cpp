@@ -230,7 +230,11 @@ void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
 					std::mt19937& ran_gen,
 					const bool& AND_DrvProbExit,
 					const std::vector<std::vector<int> >& fixation_l,
-					const double& fatalPopSize = 1e15) {
+					POM& pom,
+					const std::map<int, std::string>& intName,
+					const fitness_as_genes& genesInFitness,
+					const double& fatalPopSize = 1e15
+					) {
   // Fill out, but also compute totPopSize
   // and return sample summaries for popsize, drivers.
   
@@ -389,12 +393,17 @@ void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
     storeThis = true;
 
 
+  
+  
+  // Reuse some info for POM
+
   if( storeThis ) {
     lastStoredSample = currentTime;
     outNS_i++;
     int ndr_lp = 0;
     double l_pop_s = 0.0;
-    
+    int largest_clone = -99;
+
     time_out.push_back(currentTime);
     
     for(size_t i = 0; i < popParams.size(); ++i) {
@@ -405,12 +414,21 @@ void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
       if(popParams[i].popSize > l_pop_s) {
 	l_pop_s = popParams[i].popSize;
 	ndr_lp = getGenotypeDrivers(Genotypes[i], drv).size();
+	largest_clone = i;
       }
     }
     sampleTotPopSize.push_back(totPopSize);
     sampleLargestPopSize.push_back(l_pop_s);
     sampleMaxNDr.push_back(max_ndr);
     sampleNDrLargestPop.push_back(ndr_lp);
+
+    if(l_pop_s > 0) {
+      if (largest_clone < 0)
+    	throw std::logic_error("largest_clone < 0");
+      addToPOM(pom, Genotypes[largest_clone], intName, genesInFitness);
+    } else {
+      addToPOM(pom, "_EXTINCTION_");
+    }
   } 
   
   if( !std::isfinite(totPopSize) ) {
@@ -419,8 +437,24 @@ void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
   if( std::isnan(totPopSize) ) {
     throw std::range_error("totPopSize is NaN");
   }
-  
-
+  // For POM
+  if( !storeThis ) {
+    double l_pop_s = 0.0;
+    int largest_clone = -99;
+    for(size_t i = 0; i < popParams.size(); ++i) {
+      if(popParams[i].popSize > l_pop_s) {
+	l_pop_s = popParams[i].popSize;
+	largest_clone = i;
+      }
+    }
+    if(l_pop_s > 0) {
+      if (largest_clone < 0)
+	throw std::logic_error("largest_clone < 0");
+      addToPOM(pom, Genotypes[largest_clone], intName, genesInFitness);
+    } else {
+      addToPOM(pom, "_EXTINCTION_");
+    }
+  }
 }
 
 // FIXME: I might want to return the actual drivers in each period
@@ -598,7 +632,6 @@ std::string genotypeToNameString(const std::vector<int>& genotypeV,
 
   std::vector<int> order_int;
   std::vector<int> rest_int;
-
    
   for(auto const &g : genotypeV) {
     if( binary_search(fg.orderG.begin(), fg.orderG.end(), g)) {
@@ -612,6 +645,7 @@ std::string genotypeToNameString(const std::vector<int>& genotypeV,
   std::string order_part;
   std::string rest;
   std::string comma = "";
+  
   // FIXME: when sure no problems, remove at if needed for speed.
   for(auto const &g : order_int) {
     order_part += (comma + intName.at(g));
@@ -739,18 +773,85 @@ static void nr_sample_all_pop_P(std::vector<int>& sp_to_remove,
   }
 }
 
-
+// zz: add population size of parent, to get the true LOD
+// as in Szendro
 void addToPhylog(PhylogName& phylog,
 		 const Genotype& parent,
 		 const Genotype& child,
-		 double time,
+		 const double time,
 		 const std::map<int, std::string>& intName,
-		 const fitness_as_genes& fg) {
+		 const fitness_as_genes& fg,
+		 const double pop_size_child) {
   phylog.time.push_back(time);
   phylog.parent.push_back(genotypeToNameString(genotypeSingleVector(parent),
 					       fg, intName));
   phylog.child.push_back(genotypeToNameString(genotypeSingleVector(child),
 					      fg, intName));
+  phylog.pop_size_child.push_back(pop_size_child);
+}
+
+// // Only called when the child has pop size of 0
+// // so true LOD
+// void addToLOD(LOD& lod,
+// 	      const Genotype& parent,
+// 	      const Genotype& child,
+// 	      // const double time,
+// 	      const std::map<int, std::string>& intName,
+// 	      const fitness_as_genes& fg) {
+//   // lod.time.push_back(time);
+//   lod.parent.push_back(genotypeToNameString(genotypeSingleVector(parent),
+// 					       fg, intName));
+//   lod.child.push_back(genotypeToNameString(genotypeSingleVector(child),
+// 					      fg, intName));
+// }
+
+
+// Only called when the child has pop size of 0
+// so true LOD
+// Use a map for LOD, and overwrite the parent:
+// we only add when the size of the child is 0
+// The key of the map is the child.
+void addToLOD(std::map<std::string, std::string>& lod,
+	      const Genotype& parent,
+	      const Genotype& child,
+	      // const double time,
+	      const std::map<int, std::string>& intName,
+	      const fitness_as_genes& fg) {
+  std::string parent_str = genotypeToNameString(genotypeSingleVector(parent),
+					 fg, intName);
+  std::string child_str = genotypeToNameString(genotypeSingleVector(child),
+					       fg, intName);
+  lod[child_str] = parent_str;
+  // // lod.time.push_back(time);
+  // lod.parent.push_back(genotypeToNameString(genotypeSingleVector(parent),
+  // 					       fg, intName));
+  // lod.child.push_back(genotypeToNameString(genotypeSingleVector(child),
+  // 					      fg, intName));
+}
+
+
+void addToPOM(POM& pom,
+	      const Genotype& genotype,
+	      const std::map<int, std::string>& intName,
+	      const fitness_as_genes& fg) {
+
+  if (pom.genotypes.empty()) {
+    std::string g = genotypeToNameString(genotypeSingleVector(genotype),
+				       fg, intName);
+    pom.genotypesString.push_back(g);
+    pom.genotypes.push_back(genotype);
+  } else if ( !(pom.genotypes.back() == genotype) ) {
+    std::string g = genotypeToNameString(genotypeSingleVector(genotype),
+				       fg, intName);
+    pom.genotypesString.push_back(g);
+    pom.genotypes.push_back(genotype);
+  }
+}
+
+// to explicitly signal extinction
+void addToPOM(POM& pom,
+	      const std::string string) {
+  pom.genotypesString.push_back(string);
 }
 
 
@@ -811,7 +912,10 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 			const bool& AND_DrvProbExit,
 			const std::vector< std::vector<int> >& fixation_l,
 			 int& ti_dbl_min,
-			 int& ti_e3) {
+			 int& ti_e3,
+			 std::map<std::string, std::string>& lod,
+			 // LOD& lod,
+			 POM& pom) {
   
   double nextCheckSizeP = checkSizePEvery;
   const int numGenes = fitnessEffects.genomeSize;
@@ -826,7 +930,7 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
   double dummyMutationRate = std::max(std::min(minmu/1.0e4, targetmindummy),
 				      mymindummy);
   // This should very rarely happen:
-  if(minmu <= 1e-9 ) {
+  if(minmu <= mymindummy) { // 1e-9 
     double newdd = minmu/100.0;
     Rcpp::Rcout << "WARNING: the smallest mutation rate is "
 		<< "<= " << mymindummy << ". That is a really small value"
@@ -842,6 +946,9 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
   genot_out.clear();
 
   phylog = PhylogName();
+  // lod = LOD(); 
+  lod.clear();
+  pom = POM();
   
   popSizes_out.clear();
   index_out.clear();
@@ -1089,8 +1196,10 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
     // we pass as the parent the tmpParam; it better initialize
     // everything right, or that will blow. Reset to init
     init_tmpP(tmpParam);
+    addToPOM(pom, Genotypes[0], intName, genesInFitness);
   } else { //no initMutant
     popParams[0].numMutablePos = numGenes;
+    
     // if(typeModel == TypeModel::beerenwinkel) {
     //   popParams[0].death = 1.0;
     //   // initialize to prevent birth/mutation warning with Beerenwinkel
@@ -1420,6 +1529,7 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 			newMutations,
 			ran_gen,
 			mu);
+	//DP2(newMutations);
 	// nr_change
 	// getMutatedPos_bitset(mutatedPos, numMutablePosParent, // r,
 	// 		     ran_gen,
@@ -1494,9 +1604,9 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 	    // if(keepMutationTimes)
 	    //   update_mutation_freqs(newMutation, currentTime, mutation_freq_at);
 	    //FIXME: phylog
-	    if(keepPhylog)
-	      addToPhylog(phylog, Genotypes[nextMutant], newGenotype, currentTime,
-			  intName, genesInFitness);
+	    // if(keepPhylog)
+	    //   addToPhylog(phylog, Genotypes[nextMutant], newGenotype, currentTime,
+	    // 		  intName, genesInFitness);
 	    
 	    tmpParam.numMutablePos = numMutablePosParent - 1;
 	    tmpParam.mutation = mutationFromScratch(mu, tmpParam, newGenotype,
@@ -1531,7 +1641,18 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 	  
 	    g_tmp1_nr = tmpParam.death/tmpParam.mutation;
 	    if(g_tmp1_nr < g_min_death_mut_ratio_nr) g_min_death_mut_ratio_nr = g_tmp1_nr;	
-#endif	  
+#endif
+
+	    // LOD:
+	    // here first call to addToPhylog, with popSize popParams[sp].popSize
+	    // and it is 0
+	    if(keepPhylog)
+	      addToPhylog(phylog, Genotypes[nextMutant], newGenotype, currentTime,
+			  intName, genesInFitness, 0);
+	    // LOD, as LOD sensu stricto, always done now
+	    addToLOD(lod, Genotypes[nextMutant], newGenotype, // currentTime,
+			intName, genesInFitness);
+
 	  } else {// fitness is 0, so we do not add it
 	    --sp;
 	    --numSpecies;
@@ -1679,6 +1800,14 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 	  // popParams[sp].timeLastUpdate = -99999.99999; // to catch errors
 #endif
 	  //popParams[sp].Flag = true;
+
+	    //zz: LOD:
+	    // here one of the calls to addToPhylog, with popSize popParams[sp].popSize
+	    if(keepPhylog)
+	      addToPhylog(phylog, Genotypes[nextMutant], newGenotype, currentTime,
+			  intName, genesInFitness, popParams[sp].popSize);
+	    
+
 	}
 	//   ***************  5.7 ***************
 	// u_2 irrelevant if to_update = 1;
@@ -1751,7 +1880,9 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 					 nextCheckSizeP,
 					 ran_gen,
 					 AND_DrvProbExit,
-					 fixation_l); //keepEvery is for thinning
+					 fixation_l,
+					 pom, intName,
+					 genesInFitness); //keepEvery is for thinning
       if(verbosity >= 3) {
 	Rcpp::Rcout << "\n popParams.size() before sampling " << popParams.size() 
 		  << "\n totPopSize after sampling " << totPopSize << "\n";
@@ -1892,7 +2023,10 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   std::map<int, std::string> intName = mapGenesIntToNames(fitnessEffects);
   fitness_as_genes genesInFitness = fitnessAsGenes(fitnessEffects);
   PhylogName phylog;
-
+  // LOD lod;
+  std::map<std::string, std::string> lod;
+  POM pom;
+  
   // Mutator effects
   fitnessEffectsAll muEF;
   if( (full2mutator.size() != 0) ) 
@@ -1903,7 +2037,6 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   if( (full2mutator.size() != 0) && (muEF.genomeSize == 0))
     throw std::logic_error("full2mutator > 0 with mutatorEffects.genomesize 0");
   if( (full2mutator.size() == 0) && (muEF.genomeSize != 0)) {
-    DP2(muEF.genomeSize);
     throw std::logic_error("full2mutator 0 with mutatorEffects.genomesize != 0");
   }
 
@@ -2089,7 +2222,9 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 		  AND_DrvProbExit,
 		  fixation_l,
 		  ti_dbl_min,
-		  ti_e3);
+		  ti_e3,
+		  lod,
+		  pom);
       ++numRuns;
       forceRerun = false;
       accum_ti_dbl_min += ti_dbl_min;
@@ -2185,11 +2320,28 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   driverCounts(maxNumDrivers, totalPresentDrivers,
 	       countByDriver, presentDrivers,
 	       returnGenotypes, fitnessEffects.drv);
-  
+
+ 
   std::vector<std::string> genotypesAsStrings =
     genotypesToNameString(uniqueGenotypes_vector_nr, genesInFitness, intName);
   std::string driversAsString =
     driversToNameString(presentDrivers, intName);
+
+  // // // zz: debugging
+  // // // Correct too
+  // DP1("intName");
+  // for(auto mmm: intName) {
+  //   Rcpp::Rcout << mmm.first << " :" ;
+  //   Rcpp::Rcout << mmm.second << std::endl;
+  // }
+
+
+  // // wrong
+  // DP1("genotypesAsStrings");
+  // for(auto gas: genotypesAsStrings) {
+  //   Rcpp::Rcout << gas;
+  //   Rcpp::Rcout << std::endl;
+  // }
 
   
   std::vector<double> sampleLargestPopProp(outNS_i + 1);
@@ -2203,6 +2355,13 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   fill_SStats(perSampleStats, sampleTotPopSize, sampleLargestPopSize,
   	      sampleLargestPopProp, sampleMaxNDr, sampleNDrLargestPop);
 
+  // create the lod return pieces. Move to a function later
+  std::vector<std::string> lod_parent;
+  std::vector<std::string> lod_child;
+  for (const auto &l : lod) {
+    lod_child.push_back(l.first);
+    lod_parent.push_back(l.second);
+  }
   
   return
     List::create(Named("pops.by.time") = outNS,
@@ -2243,12 +2402,19 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 					       Named("PhylogDF") =  DataFrame::create(
 										      Named("parent") = phylog.parent,
 										      Named("child") = phylog.child,
-										      Named("time") = phylog.time
+										      Named("time") = phylog.time,
+										      Named("pop_size_child") = phylog.pop_size_child
 										      ),
 					       Named("UnrecoverExcept") = false,
 					       Named("numRecoverExcept") = numRecoverExcept,
 					       Named("accum_ti_dbl_min") = accum_ti_dbl_min,
-					       Named("accum_ti_e3") = accum_ti_e3)
+					       Named("accum_ti_e3") = accum_ti_e3,
+					       Named("LOD_DF") = DataFrame::create(
+										   Named("parent") = lod_parent, // lod.parent,
+										   Named("child") = lod_child //lod.child
+										   ),
+					       Named("POM") = Rcpp::wrap(pom.genotypesString)
+					       )
 		 );
 }
 

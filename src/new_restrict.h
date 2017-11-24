@@ -47,6 +47,14 @@ struct genesWithoutInt {
   std::vector<double> s;
 };
 
+
+struct fitnessLandscape_struct {
+  std::vector<int> NumID;
+  std::vector<std::string> names;
+  // zz: maybe not a char; hold on
+  std::map<std::string, double> flmap;
+};
+
 struct Poset_struct {
   Dependency typeDep;
   int childNumID; //Not redundant
@@ -99,7 +107,8 @@ struct fitnessEffectsAll {
 			     //not modules. Sorted.
   std::vector<int> drv; // Sorted.
   genesWithoutInt genesNoInt;
-  
+  // zz:
+  fitnessLandscape_struct fitnessLandscape;
 };
 
 inline fitnessEffectsAll nullFitnessEffects() {
@@ -119,11 +128,17 @@ inline fitnessEffectsAll nullFitnessEffects() {
   f.genesNoInt.NumID.resize(0);
   f.genesNoInt.names.resize(0);
   f.genesNoInt.s.resize(0);
+  f.fitnessLandscape.NumID.resize(0);
+  f.fitnessLandscape.names.resize(0);
+  f.fitnessLandscape.flmap.clear();
   return f;
 }
 
 
-
+// FIXME: fitness_as_genes and Genotype are identical
+// structures. Why not use the same thing?
+// Because even if just four vectors of ints, have different meaning.
+// Humm... 
 struct fitness_as_genes {
   // fitnessEffectsAll in terms of genes.  Useful for output
   // conversions. There could be genes that are both in orderG and
@@ -133,8 +148,17 @@ struct fitness_as_genes {
   std::vector<int> orderG;
   std::vector<int> posetEpistG;
   std::vector<int> noInt;
+  std::vector<int> flGenes;
 };
 
+inline fitness_as_genes zero_fitness_as_genes() {
+  fitness_as_genes g;
+  g.orderG.resize(0);
+  g.posetEpistG.resize(0);
+  g.noInt.resize(0);
+  g.flGenes.resize(0);
+  return g;
+}
 // There are no shared genes in order and epist.  Any gene in orderEff can
 // also be in the posets or general epistasis, but orderEff is only for
 // those that have order effects.
@@ -151,7 +175,10 @@ struct Genotype {
   std::vector<int> orderEff;
   std::vector<int> epistRtEff; //always sorted
   std::vector<int> rest; // always sorted
+  std::vector<int> flGenes; // always sorted; the fitness landscape genes
 };
+
+
 
 
 
@@ -161,6 +188,7 @@ inline Genotype wtGenotype() {
   g.orderEff.resize(0);
   g.epistRtEff.resize(0);
   g.rest.resize(0);
+  g.flGenes.resize(0);
   return g;
 }
 
@@ -175,7 +203,26 @@ struct PhylogName {
   std::vector<double> time;
   std::vector<std::string> parent;
   std::vector<std::string> child;
+  std::vector<double> pop_size_child;
   // yes, implicit constructor clears
+};
+
+
+// This is all we need to then use igraph on the data frame.
+// simplified for the LOD that is always stored
+struct LOD {
+  // std::vector<double> time;
+  std::vector<std::string> parent;
+  std::vector<std::string> child;
+};
+
+// We only need the string, but if we store the genotype as such
+// we can avoid a costly conversion that often leads to storing nothing
+// in 
+struct POM {
+  // std::vector<double> time;
+  std::vector<std::string> genotypesString;
+  std::vector<Genotype> genotypes;
 };
 
 
@@ -185,7 +232,7 @@ std::vector<int> genotypeSingleVector(const Genotype& ge);
 
 bool operator==(const Genotype& lhs, const Genotype& rhs);
 
-bool operator<(const Genotype& lhs, const Genotype& rhs);
+// bool operator<(const Genotype& lhs, const Genotype& rhs);
 
 
 TypeModel stringToModel(const std::string& dep);
@@ -256,5 +303,14 @@ bool detectedSizeP(const double n, const double cPDetect,
 		   const double PDBaseline, std::mt19937& ran_gen);
 
 std::vector < std::vector<int> > list_to_vector_of_int_vectors(Rcpp::List vlist);
+
+void addToPOM(POM& pom,
+	      const Genotype& genotype,
+	      const std::map<int, std::string>& intName,
+	      const fitness_as_genes& fg);
+
+void addToPOM(POM& pom,
+	      const std::string string);
+
 #endif
 
