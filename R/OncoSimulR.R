@@ -327,6 +327,28 @@ samplePop <- function(x, timeSample = "last",
 }
 
 
+
+## single_largest_last_pop <- function(x) {
+##     last <- nrow(x$pops.by.time)
+##     largest <- which.max(x$pops.by.time[last, , drop = FALSE]) - 1
+##     genot <- x[["GenotypesLabels"]][largest]
+##     strsplit(genot, split = ", ")[[1]]
+## }
+
+
+## ## like samplePop(x, timeSample = "last") but return the single most abundant genotype
+## Just a prototype. Not well tested.
+## largest_last_pop <- function(x) {
+##     y <- lapply(x, single_largest_last_pop)
+##     allg <- sort(unique(unlist(y)))
+##     m <- t(vapply(y, function(z) {as.integer(allg %in%  z) },
+##                   integer(length(allg)) ))
+##     colnames(m) <- allg
+##     return(m)
+## }
+
+
+
 oncoSimulPop <- function(Nindiv,
                          fp,
                          model = "Exp",
@@ -767,8 +789,39 @@ print.oncosimul <- function(x, ...) {
 ## }
 
 summary.oncosimulpop <- function(object, ...) {
+    ## some simulations could have failed seriously returning a NULL
+    ## FIXME: how, why? Out of memory?
+
+    rm1 <- which(unlist(lapply(object, is.null)))
+    if(length(rm1) > 0) {
+        if(length(rm1) < length(object)) {
+            warning("Some simulations returned NULL. They will be removed",
+                    " from the summary. The NULL runs are ",
+                    paste(rm1, collapse = ", "),
+                    ".")
+        } else {
+            warning("All simulations returned NULL.")
+            return(NA)
+        }
+    }
+
+    ## I do not want to rm above for two reasons:
+    ##   - avoid re-asigning to the object
+    ##   - changing the numbering of the indices below if NULLs
+    ## So I need something more involved
+    ## Figure out exactly what the summary of a NULL is
+    sumnull <- summary(NULL)
+    
     tmp <- lapply(object, summary)
-    rm <- which(unlist(lapply(tmp, function(x) (length(x) == 1) && (is.na(x)))))
+
+    ## rm <- which(unlist(lapply(tmp,
+    ##                           function(x) (length(x) == 1) &&
+    ##                                       (is.na(x) || is.null(x)))))
+
+    rm <- which(unlist(lapply(tmp,
+                              function(x) ((length(x) == 1) &&
+                                           (is.na(x) || is.null(x))) ||
+                                          (identical(x, sumnull)))))
     if(length(rm) > 0)
         if(length(rm) < length(object)) {
         warning("Some simulations seem to have failed and will be removed",
@@ -1631,12 +1684,56 @@ get.mut.vector <- function(x, timeSample, typeSample,
         return( as.numeric((tcrossprod(pop,
                                        x$Genotypes)/popSize) >= thresholdWhole) )
     } else if (typeSample %in%  c("singleCell", "single")) {
-
         return(x$Genotypes[, sample(seq_along(pop), 1, prob = pop)])
+    } else if (typeSample %in% c("singleCell-noWT", "single-noWT",
+                                 "singleCell-nowt", "single-nowt")) {
+        genots <- x$Genotypes
+        whichwt <- which(x$GenotypesLabels == "")
+        if(length(whichwt)) {
+            genots <- genots[, -whichwt, drop = FALSE]
+            pop <- pop[-whichwt]
+        }
+        if(all(pop == 0)) {
+            warning("No non-WT clone with required popSize or at required time")
+            return(rep(NA, nrow(x$Genotypes)))
+        } else {
+            return(genots[, sample(seq_along(pop), 1, prob = pop)])
+        }
     } else {
         stop("Unknown typeSample option")
     }
 }
+
+
+## get.mut.vector <- function(x, timeSample, typeSample,
+##                            thresholdWhole, popSizeSample) {
+##     if(is.null(x$TotalPopSize)) {
+##         warning(paste("It looks like this simulation never completed.",
+##                       " Maybe it reached maximum allowed limits.",
+##                       " You will get NAs"))
+##         return(rep(NA, length(x$geneNames)))
+##     }
+##     the.time <- get.the.time.for.sample(x, timeSample, popSizeSample)
+##     if(the.time < 0) { 
+##         return(rep(NA, nrow(x$Genotypes)))
+##     } 
+##     pop <- x$pops.by.time[the.time, -1]
+    
+##     if(all(pop == 0)) {
+##         stop("You found a bug: this should never happen")
+##     }
+    
+##     if(typeSample %in% c("wholeTumor", "whole")) {
+##         popSize <- x$PerSampleStats[the.time, 1]
+##         return( as.numeric((tcrossprod(pop,
+##                                        x$Genotypes)/popSize) >= thresholdWhole) )
+##     } else if (typeSample %in%  c("singleCell", "single")) {
+
+##         return(x$Genotypes[, sample(seq_along(pop), 1, prob = pop)])
+##     } else {
+##         stop("Unknown typeSample option")
+##     }
+## }
 
 
 

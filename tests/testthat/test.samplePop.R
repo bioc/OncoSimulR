@@ -252,7 +252,13 @@ test_that("exercising the sampling code, v2 objects", {
               expect_message(samplePop(o4, timeSample = "last",
                                        typeSample = "whole"),
                              "Subjects by Genes matrix of 2 subjects and 10 genes")
-          })
+              expect_message(samplePop(o4, typeSample = "single-nowt",
+                                       timeSample = "last"),
+                            "Subjects by Genes matrix of 2 subjects and 10 genes")
+              expect_message(samplePop(o4, typeSample = "single-nowt",
+                                       timeSample = "uniform"),
+                             "Subjects by Genes matrix of 2 subjects and 10 genes")
+})
 
 test_that("exercising the sampling code, v2 objects, more", {
               cs <-  data.frame(parent = c(rep("Root", 4), "a", "b", "d", "e", "c"),
@@ -300,7 +306,13 @@ test_that("exercising the sampling code, v2 objects, more", {
               expect_message(samplePop(o4, timeSample = "last",
                                        typeSample = "whole"),
                              "Subjects by Genes matrix of 4 subjects and 6 genes")
-          })
+              expect_message(samplePop(o4, typeSample = "single-nowt",
+                                       timeSample = "last"),
+                            "Subjects by Genes matrix of 4 subjects and 6 genes")
+              expect_message(samplePop(o4, typeSample = "single-nowt",
+                                       timeSample = "uniform"),
+                             "Subjects by Genes matrix of 4 subjects and 6 genes")
+})
 
 
 
@@ -382,7 +394,37 @@ test_that("exercising sampling code, customSize", {
     expect_message(samplePop(o4, typeSample = "single",
                              popSizeSample = c(6100, 0, 5000, 9000)),
                    "Subjects by Genes matrix of 4 subjects and 6 genes")
-   
+
+    expect_message(samplePop(o4, typeSample = "single-nowt",
+                             popSizeSample = c(9000, 9000, 8500, 9000)),
+                   "Subjects by Genes matrix of 4 subjects and 6 genes")
+
+    ## these are specific for the nowt code to exercise the dealing with
+    ## borderline cases and the second to deal with a clearly non-borderline
+    o41 <- oncoSimulPop(4,
+                        cbn1,
+                        initSize = 2e3,
+                       detectionSize = 1e3,
+                       onlyCancer = TRUE,
+                       mc.cores = 2,
+                       max.num.tries = 5000,
+                       sampleEvery = 0.03, keepEvery = 1)
+    expect_message(samplePop(o41, typeSample = "single-nowt",
+                             popSizeSample = c(900, 800, 850, 900)),
+                   "Subjects by Genes matrix of 4 subjects and 6 genes")
+    expect_warning(samplePop(o41, typeSample = "single-nowt",
+                             popSizeSample = c(900, 800, 850, 900)),
+                   "No non-WT clone with required popSize or at required time")
+    o91 <- oncoSimulPop(4,
+                       cbn1, 
+                       detectionSize = 1e5,
+                       onlyCancer = TRUE,
+                       mc.cores = 2,
+                       max.num.tries = 5000,
+                       sampleEvery = 0.03, keepEvery = 1)
+     expect_message(samplePop(o91, typeSample = "single-nowt",
+                             popSizeSample = c(9000, 9000, 8500, 9000)),
+                   "Subjects by Genes matrix of 4 subjects and 6 genes")
 })
 
 
