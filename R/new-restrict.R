@@ -63,7 +63,7 @@ check.gm <- function(gm) {
 }
 
 gtm2 <- function(x) {
-    data.frame(cbind(nice.vector.eo(x, ","), x))
+    data.frame(cbind(nice.vector.eo(x, ","), x), stringsAsFactors = TRUE)
 }
 
 ## nice.vector.eo <- function(z, sep) {
@@ -88,7 +88,8 @@ gm.to.geneModuleL <- function(gm, one.to.one) {
     gm <- check.gm(gm)
    
     ## the named vector with the mapping into the long geneModule df
-    geneMod <- as.data.frame(rbindlist(lapply(gm, gtm2)))
+    geneMod <- as.data.frame(rbindlist(lapply(gm, gtm2)),
+                             stringsAsFactors = TRUE) ## this stringsAsFactors is key
     geneMod$Module <- names(gm)[geneMod[, 2]] ## reverse lookup table
     colnames(geneMod)[1] <- c("Gene")
     geneMod <- geneMod[, -2]
@@ -285,7 +286,8 @@ epist.order.to.pairs.modules <- function(x, sep, rm.sign = TRUE) {
 to.pairs.modules <- function(x, sep, rm.sign = TRUE) {
     df <- data.frame(rbindlist(
         lapply(names(x),
-               function(z) epist.order.to.pairs.modules(z, sep))))
+               function(z) epist.order.to.pairs.modules(z, sep))),
+        stringsAsFactors = TRUE)
     if(nrow(df) == 0L) { ## if only single genes in epist, we get nothing here.
         return(df)
     } else {
@@ -1780,6 +1782,9 @@ nr_oncoSimul.internal <- function(rFE,
                                   MMUEF = NULL, ## avoid partial matching, and set default
                                   fixation = NULL ## avoid partial matching
                                   ) {
+
+    default_min_successive_fixation <- 50 ## yes, set at this for now
+    
     if(!inherits(rFE, "fitnessEffects"))
         stop(paste("rFE must be an object of class fitnessEffects",
                    "as created, for instance, with function",
@@ -1939,11 +1944,75 @@ nr_oncoSimul.internal <- function(rFE,
     ## if( is.null(n2)) n2 <- -9
 
     ## call <- match.call()
-    
     ## Process the fixed list, if any
     if(!is_null_na(fixation)) {
         ng <- namedGenes
-        rownames(ng) <- namedGenes[, "Gene"]
+        ## rownames(ng) <- namedGenes[, "Gene"]
+        ## Proposed extension to have exact matching of genotypes
+        ng <- rbind(
+             data.frame(Gene = "_", GeneNumID = -9, stringsAsFactors = FALSE),
+             ng)
+        rownames(ng) <- ng[, "Gene"]
+        ## FIXME
+        ## Later, accept a last argument, called tolerance.
+        ## If not present, set to 0
+        ## and then, at at the head of fixation_list below
+        if(is.list(fixation)) {
+            if(
+            (is.null(fixation[["fixation_tolerance"]])) ||
+            (is.na(fixation[["fixation_tolerance"]]))) {
+                fixation_tolerance <- 0
+            } else {
+                fixation_tolerance <- as.numeric(fixation[["fixation_tolerance"]])
+                fixation <- fixation[-which(names(fixation) == "fixation_tolerance")]
+            }
+            if(
+            (is.null(fixation[["min_successive_fixation"]])) ||
+            (is.na(fixation[["min_successive_fixation"]]))) {
+                min_successive_fixation <- default_min_successive_fixation
+            } else {
+                min_successive_fixation <- as.integer(fixation[["min_successive_fixation"]])
+                fixation <- fixation[-which(names(fixation) == "min_successive_fixation")]
+            }
+            if(
+            (is.null(fixation[["fixation_min_size"]])) ||
+            (is.na(fixation[["fixation_min_size"]]))) {
+                fixation_min_size <- 0
+            } else {
+                fixation_min_size <- as.integer(fixation[["fixation_min_size"]])
+                fixation <- fixation[-which(names(fixation) == "fixation_min_size")]
+            }
+            
+        } else {
+            if(is_null_na(fixation["fixation_tolerance"])) {
+                fixation_tolerance <- 0
+            } else {
+                fixation_tolerance <- as.numeric(fixation["fixation_tolerance"])
+                fixation <- fixation[-which(names(fixation) == "fixation_tolerance")]
+            }
+            if(is_null_na(fixation["min_successive_fixation"])) {
+                min_successive_fixation <- default_min_successive_fixation
+            } else {
+                min_successive_fixation <- as.integer(fixation["min_successive_fixation"])
+                fixation <- fixation[-which(names(fixation) == "min_successive_fixation")]
+            }
+            if(is_null_na(fixation["fixation_min_size"])) {
+                fixation_min_size <- 0
+            } else {
+                fixation_min_size <- as.integer(fixation["fixation_min_size"])
+                fixation <- fixation[-which(names(fixation) == "fixation_min_size")]
+            }
+        }
+
+        if( (fixation_tolerance > 1) || (fixation_tolerance < 0) )
+                    stop("Impossible range for fixation tolerance")
+
+        if( (min_successive_fixation < 0) )
+                    stop("Impossible range for min_successive_fixation")
+
+        if( (fixation_min_size < 0) )
+                    stop("Impossible range for fixation_min_size")
+
         ## Usual genotype specification and might allow ordered vectors
         ## in the future
         fixation_b <- lapply(fixation, nice.vector.eo, sep = ",")
@@ -1956,6 +2025,10 @@ nr_oncoSimul.internal <- function(rFE,
                        " in the fitness effects."))
         ## Sorting here is crucial!!
         fixation_list <- lapply(fixation_b, function(x) sort(ng[x, 2]))
+        fixation_list <- list(fixation_list = fixation_list,
+                              fixation_tolerance = fixation_tolerance,
+                              min_successive_fixation = min_successive_fixation,
+                              fixation_min_size = fixation_min_size)
     } else {
         fixation_list <- list()
     }
@@ -2219,8 +2292,8 @@ detectionProbCheckParse <- function(x, initSize, verbosity) {
     
     if(x["checkSizePEvery"] <= 0)
         stop("checkSizePEvery <= 0")
-    if(x["PDBaseline"] < 0)
-        stop("PDBaseline < 0")
+    if(x["PDBaseline"] <= 0)
+        stop("PDBaseline <= 0")
     
     if(!is_null_na(x["n2"])) {
         if(x["n2"] <= x["PDBaseline"])
@@ -2257,7 +2330,8 @@ sampledGenotypes <- function(y, genes = NULL) {
     ## ))
     df <- data.frame(table(
         apply(y, 1, genotlabel),
-        useNA = "ifany"))
+        useNA = "ifany"),
+        stringsAsFactors = TRUE)
 
     gn <- as.character(df[, 1])
     gn[gn == ""] <- "WT"

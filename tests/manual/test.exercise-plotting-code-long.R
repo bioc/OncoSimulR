@@ -1,5 +1,11 @@
 ## RNGkind("Mersenne-Twister")
-cat(date())
+
+cat(paste("\n Starting exercise-plotting-code long at", date()))
+cat(paste("\n             a runif", runif(1), "\n"))
+cat(paste("\n             a runif", runif(1), "\n"))
+date()
+
+
 test_that("exercising plotClonePhylog", {
               data(examplesFitnessEffects)
               tmp <-  oncoSimulIndiv(examplesFitnessEffects[["o3"]],
@@ -26,6 +32,10 @@ test_that("exercising plotClonePhylog", {
               plotClonePhylog(tmp, N = 10, keepEvents = TRUE)
               ## Reaching the fixOverlap code
               plotClonePhylog(tmp, N = 0, timeEvents = TRUE)
+              expect_true(TRUE) ## dummy, to prevent the
+              ## attempt to apply non-function
+              ## If plotting failed, this would fail
+              expect_error(plotClonePhylog(c(1, 2)))
           })
 cat(date())
 
@@ -58,73 +68,11 @@ test_that("exercising the fitnessEffects plotting code", {
               plot(fp4m, "igraph", layout = igraph::layout.reingold.tilford, 
                    expandModules = TRUE, autofit = TRUE)
               plot(fp4m, expandModules = TRUE, autofit = TRUE)
+              expect_true(TRUE) ## dummy, to prevent the
+              ## attempt to apply non-function
+              ## If plotting failed, this would fail
           })
 date()
-
-
-
-
-date()
-test_that("stacked, stream, genotypes and some colors", {
-    data(examplesFitnessEffects)
-    max.tries <- 4
-    for(i in 1:max.tries) {
-      tmp <-  oncoSimulIndiv(examplesFitnessEffects[["o3"]],
-                             model = "McFL", 
-                             mu = 5e-5,
-                             detectionSize = 1e8, 
-                             detectionDrivers = 3,
-                             sampleEvery = 0.025,
-                             max.num.tries = 10,
-                             keepEvery = 5,
-                             initSize = 2000,
-                             finalTime = 3000,
-                             onlyCancer = FALSE, detectionProb = NA,
-                             keepPhylog = TRUE)
-      
-      if(nrow(tmp$pops.by.time) >= 5) {
-          break
-      } else {
-          cat("\n hummm.. had to run again in the plot")
-          if(i >= max.tries) {
-              print(tmp)
-            stop("stream will break")
-          }
-      }
-    }
-    plot(tmp, type = "stacked", show = "genotypes")
-    plot(tmp, type = "stream", show = "genotypes")
-      plot(tmp, type = "line", show = "genotypes")
-
-      plot(tmp, type = "stacked", show = "drivers")
-      plot(tmp, type = "stream", show = "drivers")
-      plot(tmp, type = "line", show = "drivers")
-
-      plot(tmp, type = "stacked", order.method = "max")
-      plot(tmp, type = "stacked", order.method = "first")
-
-      plot(tmp, type = "stream", order.method = "max")
-      plot(tmp, type = "stream", order.method = "first")
-
-      plot(tmp, type = "stream", stream.center = TRUE)
-      plot(tmp, type = "stream", stream.center = FALSE)
-
-      plot(tmp, type = "stream", stream.center = TRUE, log = "x")
-      plot(tmp, type = "stacked", stream.center = TRUE, log = "x")
-      
-      plot(tmp, type = "stacked", show = "genotypes",
-           breakSortColors = "random")
-      plot(tmp, type = "stream", show = "genotypes",
-           breakSortColors = "distave")
-
-      plot(tmp, type = "stacked", show = "genotypes", col = rainbow(9))
-      plot(tmp, type = "stream", show = "genotypes", col = rainbow(3))
-      plot(tmp, type = "line", show = "genotypes", col = rainbow(20))
-      
-})
-date()
-
-
 
 test_that("xlab, ylab, ylim, xlim can be passed", {
     data(examplePosets)
@@ -233,6 +181,11 @@ test_that("xlab, ylab, ylim, xlim can be passed", {
          ylab = "ylab", ylim = c(-100, 1000),
          xlim = c(20, 70),
          plotDrivers = TRUE)
+    expect_true(TRUE) ## dummy, to prevent the
+    ## attempt to apply non-function
+    ## If plotting failed, this would fail
+    expect_error(plot(e1, type = "stremaitoooihoh"))
+    
 })
 
 
@@ -271,32 +224,108 @@ test_that("oncosimul v.1 objects and genotype plotting", {
     plot(p1, type = "stacked", show = "genotypes", thinData = TRUE)
     plot(p1, type = "stream", show = "genotypes", thinData = TRUE)
     plot(p1, type = "line", show = "genotypes", thinData = TRUE)
+    expect_true(TRUE) ## dummy, to prevent the
+    ## attempt to apply non-function
+    ## If plotting failed, this would fail
+    expect_error(plot(tmp, type = "linito"))
 })
 date()
 
 
+## The following are not run because of the weird issue
+## using test_dir. But I test for colors and type in the
+## usual, regular, testing (test.exercise-plotting-code.R)
 
 
-test_that("passing colors", {
-    data(examplePosets)
-    ## An object of class oncosimul
-    p705 <- examplePosets[["p705"]]
-    max.tries <- 4
-    for(i in 1:max.tries) {
-    p1 <- oncoSimulIndiv(p705)
-    if(nrow(p1$pops.by.time) >= 11) {
-            break
-    } else {
-        cat("\n hummm.. had to run again in the plot")
-        if(i >= max.tries) {
-            print(p1)
-            stop("stream will break")
-        }
-    }
-    }
-    
-    class(p1)
-    plot(p1, type = "stacked", show = "genotypes", col = rainbow(8))
-    plot(p1, type = "stream", show = "genotypes", col = rainbow(18))
-    plot(p1, type = "line", show = "genotypes", col = rainbow(3))
-})
+
+## test_that("passing colors", {
+##     data(examplePosets)
+##     ## An object of class oncosimul
+##     p705 <- examplePosets[["p705"]]
+##     max.tries <- 4
+##     for(i in 1:max.tries) {
+##     p1 <- oncoSimulIndiv(p705)
+##     if(nrow(p1$pops.by.time) >= 11) {
+##             break
+##     } else {
+##         cat("\n hummm.. had to run again in the plot")
+##         if(i >= max.tries) {
+##             print(p1)
+##             stop("stream will break")
+##         }
+##     }
+##     }
+##     ## class(p1)
+##     plot(p1, type = "stacked", show = "genotypes", thinData = TRUE)
+##     ## with newest testthat, the next make if fail with test_dir, but
+##     ## not if run from REPL. Go figure
+##     plot(p1, type = "stacked", show = "genotypes", col = rainbow(8))
+##     plot(p1, type = "stream", show = "genotypes", col = rainbow(18))
+##     plot(p1, type = "line", show = "genotypes", col = rainbow(3))
+##     expect_true(TRUE) ## dummy, to prevent the
+##     ## attempt to apply non-function
+##     ## If plotting failed, this would fail
+##     expect_error(plot(p1, type = "linito"))
+## })
+
+
+
+
+
+## date()
+## test_that("stacked, stream, genotypes and some colors", {
+##     data(examplesFitnessEffects)
+##     max.tries <- 4
+##     for(i in 1:max.tries) {
+##         tmp <-  oncoSimulIndiv(examplesFitnessEffects[["o3"]],
+##                                model = "McFL", 
+##                                mu = 5e-5,
+##                                detectionSize = 1e8, 
+##                                detectionDrivers = 3,
+##                                sampleEvery = 0.025,
+##                                max.num.tries = 10,
+##                                keepEvery = 5,
+##                                initSize = 2000,
+##                                finalTime = 3000,
+##                                onlyCancer = FALSE, detectionProb = NA,
+##                                keepPhylog = TRUE)
+##         if(nrow(tmp$pops.by.time) >= 5) {
+##             break
+##         } else {
+##             cat("\n hummm.. had to run again in the plot")
+##             if(i >= max.tries) {
+##                 print(tmp)
+##                 stop("stream will break")
+##             }
+##         }
+##     }
+##     plot(tmp, type = "stacked", show = "genotypes")
+##     plot(tmp, type = "stream", show = "genotypes")
+##     plot(tmp, type = "line", show = "genotypes")
+##     plot(tmp, type = "stacked", show = "drivers")
+##     plot(tmp, type = "stream", show = "drivers")
+##     plot(tmp, type = "line", show = "drivers")
+##     plot(tmp, type = "stacked", order.method = "max")
+##     plot(tmp, type = "stacked", order.method = "first")
+##     plot(tmp, type = "stream", order.method = "max")
+##     plot(tmp, type = "stream", order.method = "first")
+##     plot(tmp, type = "stream", stream.center = TRUE)
+##     plot(tmp, type = "stream", stream.center = FALSE)
+##     plot(tmp, type = "stream", stream.center = TRUE, log = "x")
+##     plot(tmp, type = "stacked", stream.center = TRUE, log = "x")
+##     plot(tmp, type = "stacked", show = "genotypes",
+##          breakSortColors = "random")
+##     plot(tmp, type = "stream", show = "genotypes",
+##          breakSortColors = "distave")
+##     plot(tmp, type = "stacked", show = "genotypes", col = rainbow(9))
+##     plot(tmp, type = "stream", show = "genotypes", col = rainbow(3))
+##     plot(tmp, type = "line", show = "genotypes", col = rainbow(20))
+##     expect_true(TRUE) ## dummy, to prevent the
+##     ## attempt to apply non-function
+##     ## If plotting failed, this would fail
+##     expect_error(plot(tmp, type = "linito"))
+## })
+## date()
+
+
+cat(paste("\n Ending exercise-plotting-code long at", date()))
