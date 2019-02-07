@@ -22,8 +22,9 @@
 #include "common_classes.h"
 #include "bnb_common.h"
 #include "new_restrict.h"
-#include <Rcpp.h>
+#include <cfloat>
 #include <limits>
+#include <Rcpp.h>
 #include <iostream>
 #include <random>
 #include <set>
