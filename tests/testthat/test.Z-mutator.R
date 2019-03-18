@@ -76,11 +76,14 @@ test_that("all genes must be in geneToModule even if present in fitness", {
 })
 
 
-test_that("fitness and mutator effects evaluation of actual values, long example",  {
+test_that("fit. mut. eff. values, long ex",  {
     ## Based on "long example OK" in "test.all-fitness.R"
     ## Fitness and mutator effects are evaluated OK when modules, epist, etc,
     ## are made differently in mutator and fitness and modules even share names 
     RNGkind("Mersenne-Twister")
+    ## in 3.6.0 change in sample: see https://bugs.r-project.org/bugzilla/show_bug.cgi?id=17494
+    suppressWarnings(RNGversion("3.5.1"))
+
     p4 <- data.frame(parent = c(rep("Root", 4), "A", "B", "D", "E", "C", "F"),
                      child = c("A", "B", "D", "E", "C", "C", "F", "F", "G", "G"),
                      s = c(0.01, 0.02, 0.03, 0.04, 0.1, 0.1, 0.2, 0.2, 0.3, 0.3),
