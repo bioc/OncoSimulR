@@ -75,7 +75,22 @@ rfitness <- function(g, c= 0.5,
                      truncate_at_0 = TRUE,
                      K = 1,
                      r = TRUE,
-                     model = c("RMF", "NK")) {
+                     i = 0, # Ising, cost incompatibility
+                     I = -1, # Ising, sd for "i"
+                     circular = FALSE, # Ising, circular arrangement
+                     e = 0, # Eggbox, +/- e
+                     E = -1, # Eggbox, noise on "e"
+                     H = -1, # HoC stdev
+                     s = 0.1, # mean multiplivative
+                     S = -1, # SD multiplicative
+                     d = 0, # disminishing/increasing for multiplicative
+                     o = 0, # mean optimum
+                     O = -1, # sd optimum
+                     p = 0, # mean production for non 0 allele (optimum)
+                     P = -1, # sd for p
+                    
+                     model = c("RMF", "Additive", 
+                               "NK", "Ising", "Eggbox", "Full")) {
     ## Like Franke et al., 2011 and others of Krug. Very similar to Greene
     ## and Crona, 2014. And this allows moving from HoC to purely additive
     ## changing c and sd.
@@ -107,12 +122,46 @@ rfitness <- function(g, c= 0.5,
             f_det <- -c * d_reference
             ## f_det <- rowSums(m) * slope/nrow(m) ## this is Greene and Krona
             fi <- f_r + f_det
+        } else if (model == "Additive") {
+      ## get fitness effect for mutations in each gene
+      mutants <-rep(1,g)
+            ## FIXME: Why not just?
+            ## f_single_mut <- rnorm(g, mean = mu, sd = sd)
+            f_single_mut <- sapply(mutants, FUN = function(x) 
+                                            rnorm(x, mean = mu, sd = sd))
+      ## find which gene is mutated 
+      m2 <- m == 1
+      ## Sum the fitness effect of that mutation to generate a vector fi with
+      ## the fitness for each mutant condition
+      fi <- apply(m2, MARGIN = 1, FUN = function (x) sum(x*f_single_mut))
+      ## remove unnecessary variables
+      rm (f_single_mut, m2)
         } else if(model == "NK") {
             if(K >= g) stop("It makes no sense to have K >= g")
             argsnk <- paste0("-K ", K,
                              ifelse(r, " -r ", " "),
                              g, " 2")
             fl1 <- system2(fl_generate_binary(), args = argsnk, stdout = TRUE)[-1]
+        } else if (model == "Ising") {
+      argsIsing <- paste0("-i ", i, " -I ", I ,
+                          ifelse(circular, " -c ", " "),
+                          g, " 2")
+      fl1 <- system2(fl_generate_binary(), args = argsIsing, stdout = TRUE)[-1]
+    } else if (model == "Eggbox") {
+      argsEgg <- paste0("-e ", e, " -E ", E," ", g, " 2")
+      fl1 <- system2(fl_generate_binary(), args = argsEgg, stdout = TRUE)[-1]
+    } else if (model == "Full") {
+      if(K >= g) stop("It makes no sense to have K >= g")
+      argsFull <- paste0("-K ", K, ifelse(r, " -r ", " "),
+                         "-i ", i, " -I ", I , ifelse(circular, " -c ", " "),
+                         "-e ", e, " -E ", E, " ",
+                         "-H ", H, " ",
+                         "-s ", s, " -S ", S, " -d ", d, " ",
+                         "-o ", o, " -O ", O, " -p ", p, " -P ", P, " ",
+                         g, " 2")
+      fl1 <- system2(fl_generate_binary(), args = argsFull, stdout = TRUE)[-1]
+    }
+    if (model == "Eggbox" || model == "Ising" || model == "Full" || model == "NK") {
             fl1 <- matrix(
                 as.numeric(unlist(strsplit(paste(fl1, collapse = " "), " "))),
                 ncol = g + 1, byrow = TRUE)

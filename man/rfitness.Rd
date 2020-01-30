@@ -1,11 +1,12 @@
 \name{rfitness}
 \alias{rfitness}
-
+\encoding{UTF-8}
 
 \title{Generate random fitness.}
 
 \description{ Generate random fitness landscapes under a House of Cards,
-  Rough Mount Fuji, additive model, and Kauffman's NK model.  }
+  Rough Mount Fuji (RMF), additive (multiplicative) model, Kauffman's NK
+  model, Ising model, Eggbox model and Full model}
 
 
 \usage{
@@ -14,7 +15,9 @@ rfitness(g, c = 0.5, sd = 1, mu = 1, reference = "random", scale = NULL,
          wt_is_1 = c("subtract", "divide", "force", "no"),
          log = FALSE, min_accessible_genotypes = NULL,
          accessible_th = 0, truncate_at_0 = TRUE,
-         K = 1, r = TRUE, model = c("RMF", "NK"))
+         K = 1, r = TRUE, i = 0, I = -1, circular = FALSE, e = 0, E = -1,
+         H = -1, s = 0.1, S = -1, d = 0, o = 0, O = -1, p = 0, P = -1, 
+         model = c("RMF", "Additive", "NK", "Ising", "Eggbox", "Full"))
 }
 
 
@@ -25,28 +28,32 @@ rfitness(g, c = 0.5, sd = 1, mu = 1, reference = "random", scale = NULL,
   \item{g}{Number of genes.}
 
   \item{c}{The decrease in fitness of a genotype per each unit increase
-    in Hamming distance from the reference genotype (see \code{reference}).}
+    in Hamming distance from the reference genotype for the RMF model
+    (see \code{reference}).}
 
   \item{sd}{The standard deviation of the random component (a normal
-  distribution of mean \code{mu} and standard deviation \code{sd}).}
+  distribution of mean \code{mu} and standard deviation \code{sd}) for
+  the RMF and additive models .}
 
 \item{mu}{The mean of the random component (a normal distribution of
-mean \code{mu} and standard deviation \code{sd}).}
+mean \code{mu} and standard deviation \code{sd}) for the RMF and
+additive models.}
 
 
-\item{reference}{The reference genotype: for the deterministic, additive
-  part, this is the genotype with maximal fitness, and all other
-  genotypes decrease their fitness by \code{c} for every unit of Hamming
-  distance from this reference. If "random" a genotype will be randomly
-  chosen as the reference. If "max" the genotype with all positions
-  mutated will be chosen as the reference. If you pass a vector (e.g.,
-  \code{reference = c(1, 0, 1, 0)}) that will be the reference genotype.
-  If "random2" a genotype will be randomly chosen as the reference. In
-  contrast to "random", however, not all genotypes have the same
-  probability of being chosen; here, what is equal is the probability
-  that the reference genotype has 1, 2, ..., g, mutations (and, once a
-  number mutations is chosen, all genotypes with that number of
-  mutations have equal probability of being the reference). }
+\item{reference}{The reference genotype: in the RMF model, for the
+  deterministic, additive part, this is the genotype with maximal
+  fitness, and all other genotypes decrease their fitness by \code{c}
+  for every unit of Hamming distance from this reference. If "random" a
+  genotype will be randomly chosen as the reference. If "max" the
+  genotype with all positions mutated will be chosen as the
+  reference. If you pass a vector (e.g., \code{reference = c(1, 0, 1,
+  0)}) that will be the reference genotype.  If "random2" a genotype
+  will be randomly chosen as the reference. In contrast to "random",
+  however, not all genotypes have the same probability of being chosen;
+  here, what is equal is the probability that the reference genotype has
+  1, 2, ..., g, mutations (and, once a number mutations is chosen, all
+  genotypes with that number of mutations have equal probability of
+  being the reference). }
 
 \item{scale}{Either NULL (nothing is done) or a two-element vector. If a
   two-element vector, fitness is re-scaled between \code{scale[1]} (the
@@ -127,9 +134,45 @@ mean \code{mu} and standard deviation \code{sd}).}
 
 \item{r}{For the NK model, whether interacting loci are chosen at random
   (\code{r = TRUE}) or are neighbors (\code{r = FALSE}).}
+\item{i}{For de Ising model, i is the mean cost for incompatibility with which
+  the genotype's fitness is penalized when in two adjacent genes, only one of 
+  them is mutated.}
 
-\item{model}{One of "RMF" (default), for Rough Mount Fuji, or "NK", for
-  Kauffman's NK model.}
+\item{I}{For the Ising model, I is the standard deviation for the cost 
+  incompatibility (i).}
+  
+\item{circular}{For the Ising model, whether there is a circular arrangement, 
+  where the last and the first genes are adjacent to each other.}
+
+\item{e}{For the Eggbox model, mean effect in fitness for the neighbor
+  locus +/- e.}
+  
+\item{E}{For the Eggbox model, noise added to the mean effect in fitness (e).}
+
+\item{H}{For Full models, standard deviation for the House of Cards model.}
+
+\item{s}{For Full models, mean of the fitness for the Multiplicative model.}
+
+\item{S}{For Full models, standard deviation for the Multiplicative model.}
+
+\item{d}{For Full models, a disminishing (negative) or increasing 
+  (positive) return as the peak is approached for multiplicative model.}
+  
+\item{o}{For Full models, mean value for the optimum model.}
+
+\item{O}{For Full models, standard deviation for the optimum model.}
+
+\item{p}{For Full models, the mean production value for each non 0
+  allele in the Optimum model component.}
+
+\item{P}{For Full models, the associated stdev (of non 0 alleles) in the
+Optimum model component.}
+
+
+
+\item{model}{One of "RMF" (default) for Rough Mount Fuji, "Additive" for
+ Additive model, "NK", for Kauffman's NK model, "Ising" for Ising model,
+ "Eggbox" for Eggbox model or "Full" for Full models.}
 } 
 
 
@@ -146,14 +189,56 @@ mean \code{mu} and standard deviation \code{sd}).}
   random variable (in this case, a normal deviate of mean \code{mu}
   and standard deviation \code{sd}).
 
-  Setting \eqn{c = 0} we obtain a House of Cards model. Setting \eqn{sd
-    = 0} fitness is given by the distance from the reference and if the
-    reference is the genotype with all positions mutated, then we have a
-    fully additive model (fitness increases linearly with the number of
-    positions mutated).
+  When using \code{model = "RMF"}, setting \eqn{c = 0} we obtain a House
+    of Cards model. Setting \eqn{sd = 0} fitness is given by the
+    distance from the reference and if the reference is the genotype
+    with all positions mutated, then we have a fully additive model
+    (fitness increases linearly with the number of positions mutated),
+    where all mutations have the same effect.
+
+  More flexible additive models can be used using \code{model =
+  "Additive"}. This model is like the Rough Mount Fuji model in Szendro
+  et al., 2013 or Franke et al., 2011, but in this case, each locus can
+  have different contributions to the fitness evaluation. This model is
+  also referred to as the "multiplicative" model in the literature as it
+  is additive in the log-scale (e.g., see Brouillet et al., 2015 or
+  Ferretti et al., 2016). The contribution of each mutated allele to the
+  log-fitness is a random deviate from a Normal distribution with
+  specified mean \code{mu} and standard deviation \code{sd}, and the
+  log-fitness of a genotype is the sum of the contributions of each
+  mutated allele. There is no "reference" genotype in the Additive
+  model.  There is no epistasis in the additve model because the effect
+  of a mutation in a locus does not depend on the genetic background, or
+  whether the rest of the loci are mutated or not.
+  
+
+  When using \code{model = "NK"} fitness is drawn from a uniform (0, 1)
+  distribution.
+  
+  
+  When using \code{model = "Ising"} for each pair of interacting loci, 
+  there is an associated cost if both alleles are not identical 
+  (and therefore 'compatible').
+  
+  
+  When using \code{model = "Eggbox"} each locus is either high or low fitness,
+  with a systematic change between each neighbor.
+  
+  
+  When using \code{model = "Full"}, the fitness is computed with different
+  parts of the previous models depending on the choosen parameters described 
+  above. 
+  
+  
+  For \code{model = "NK" | "Ising" | "Eggbox" | "Full"} the fitness
+  landscape is generated by directly calling the \code{fl_generate}
+  function of MAGELLAN
+  (\url{http://wwwabi.snv.jussieu.fr/public/Magellan/}). See details in
+  Ferretti et al. 2016, or Brouillet et al., 2015.
+  
 
   For OncoSimulR, we often want the wildtype to have a mean of
-  1. Reasonable settings are \code{mu = 1} and \code{wt_is_1 =
+  1. Reasonable settings when using RMF are \code{mu = 1} and \code{wt_is_1 =
   'subtract'} so that we simulate from a distribution centered in 1, and
   we make sure afterwards (via a simple shift) that the wildtype is
   actuall 1. The \code{sd} controls the standard deviation, with the
@@ -162,14 +247,6 @@ mean \code{mu} and standard deviation \code{sd}).}
   of the data can be large, specially if \code{g} (the number of genes)
   is large.
 
-
-  When using \code{model = "NK"}, the model used is Kauffman's NK model
-  (see details in Ferretti et al., or Brouillet et al., below), as
-  implemented in MAGELLAN
-  (\url{http://wwwabi.snv.jussieu.fr/public/Magellan/}). This fitness
-  landscape is generated by directly calling the \code{fl_generate}
-  function of MAGELLAN. Fitness is drawn from a uniform (0, 1)
-  distribution.
   
 } 
 
@@ -214,10 +291,12 @@ MAGELLAN web site: \url{http://wwwabi.snv.jussieu.fr/public/Magellan/}
 }
 
 \author{ Ramon Diaz-Uriarte for the RMF and general wrapping
-code. S. Brouillet, G. Achaz, S. Matuszewski, H. Annoni, and L. Ferreti
-for the MAGELLAN code.
-
-}
+  code. S. Brouillet, G. Achaz, S. Matuszewski, H. Annoni, and
+  L. Ferreti for the MAGELLAN code. Further contributions to the
+  additive model and to wrapping MAGELLAN code and documentation from
+  Guillermo Gorines Cordero, Ivan Lorca Alonso, Francisco Muñoz Lopez,
+  David Roncero Moroño, Alvaro Quevedo, Pablo Perez, Cristina Devesa,
+  Alejandro Herrador.}
 
 \seealso{
   
@@ -234,6 +313,7 @@ for the MAGELLAN code.
 ## Random fitness for four genes-genotypes,
 ## plotting and simulating an oncogenetic trajectory
 
+
 r1 <- rfitness(4)
 plot(r1)
 oncoSimulIndiv(allFitnessEffects(genotFitness = r1))
@@ -243,7 +323,26 @@ oncoSimulIndiv(allFitnessEffects(genotFitness = r1))
 rnk <- rfitness(5, K = 3, model = "NK")
 plot(rnk)
 oncoSimulIndiv(allFitnessEffects(genotFitness = rnk))
-}
 
+## Additive model
+radd <- rfitness(4, model = "Additive", mu = 0.2, sd = 0.5)
+plot(radd)
+
+## Eggbox model
+regg = rfitness(g=4,model="Eggbox", e = 2, E=2.4)
+plot(regg)
+
+
+## Ising model
+ris = rfitness(g=4,model="Ising", i = 0.002, I=2)
+plot(ris)
+
+
+## Full model
+rfull = rfitness(g=4, model="Full", i = 0.002, I=2, 
+                 K = 2, r = TRUE,
+                 p = 0.2, P = 0.3, o = 0.3, O = 1)
+plot(rfull)
+}
 \keyword{ datagen }
 
