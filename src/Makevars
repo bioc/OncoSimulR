@@ -86,3 +86,4 @@ fl_generate: FitnessLandscape/main_fl_generate.c  $(MAGELLAN_LIBS)
 # 	echo "mak clean in FitnessLandscape/ ..."
 # 	(cd MAGELLAN; $(MAKE) clean)
 
+

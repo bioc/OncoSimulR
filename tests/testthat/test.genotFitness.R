@@ -106,7 +106,6 @@ test_that("genotFitness not combined with others", {
    
 })
 
-
 test_that("Missing genotypes defaults: WT 1, others 0", {
     (m8 <- data.frame(G = c("A, B, C", "B"), F = c(3, 2)))
     exp_m8 <- data.frame(

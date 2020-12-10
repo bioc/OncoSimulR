@@ -1,4 +1,4 @@
-## Copyright 2013, 2014, 2015, 2016, 2017 Ramon Diaz-Uriarte
+## Copyright 2013-2021 Ramon Diaz-Uriarte
 
 ## This program is free software: you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@ oncoSimulSample <- function(Nindiv,
                             initSize = 500,
                             s = 0.1,
                             sh = -1,
-                            K = initSize/(exp(1) - 1),
+                            K = sum(initSize)/(exp(1) - 1),
                             minDetectDrvCloneSz = "auto",
                             extraTime = 0,
                             finalTime = 0.25 * 25 * 365,
@@ -364,7 +364,7 @@ oncoSimulPop <- function(Nindiv,
                          initSize = 500,
                          s = 0.1,
                          sh = -1,
-                         K = initSize/(exp(1) - 1),
+                         K = sum(initSize)/(exp(1) - 1),
                          keepEvery = sampleEvery, 
                          minDetectDrvCloneSz = "auto",
                          extraTime = 0,
@@ -454,7 +454,7 @@ oncoSimulIndiv <- function(fp,
                            initSize = 500,
                            s = 0.1,
                            sh = -1,
-                           K = initSize/(exp(1) - 1),
+                           K = sum(initSize)/(exp(1) - 1),
                            keepEvery = sampleEvery,
                            minDetectDrvCloneSz = "auto",
                            extraTime = 0,
@@ -506,12 +506,15 @@ oncoSimulIndiv <- function(fp,
                           "Exp" = "exp",
                           "McFarlandLog" = "mcfarlandlog",
                           "McFL" = "mcfarlandlog",
+                          "McFarlandLogD" = "mcfarlandlogd",
+                          "McFLD" = "mcfarlandlogd",
                           stop("No valid value for model")
                           )
-    if(initSize < 1)
-        stop("initSize < 1")
+    if(max(initSize) < 1)
+        stop("all initSize < 1")
     
-    if( (K < 1) && (model %in% c("McFL", "McFarlandLog") )) {
+    if( (K < 1) && (model %in% c("McFL", "McFarlandLog",
+                                 "McFLD", "McFarlandLogD") )) {
         stop("Using McFarland's model: K cannot be < 1")
     }       ##  if ( !(model %in% c("McFL", "McFarlandLog") )) {
             ## K <- 1 ## K is ONLY used for McFarland; set it to 1, to avoid
@@ -526,7 +529,7 @@ oncoSimulIndiv <- function(fp,
     }
     birth <- -99
 
-    if( (typeFitness == "mcfarlandlog") &&
+    if( (typeFitness %in% c("mcfarlandlog", "mcfarlandlogd")) &&
        (sampleEvery > 0.05)) {
         warning("With the McFarland model you often want smaller sampleEvery")
     }
@@ -534,8 +537,13 @@ oncoSimulIndiv <- function(fp,
     if(minDetectDrvCloneSz == "auto") {
         if(model %in% c("Bozic", "Exp") )
             minDetectDrvCloneSz <- 0
-        else if (model %in% c("McFL", "McFarlandLog"))
-            minDetectDrvCloneSz <- initSize
+        else if (model %in% c("McFL", "McFarlandLog",
+                              "McFLD", "McFarlandLogD")) {
+            ## if(length(initSize) > 1) {
+            ##     message("length(initSize) > 1; using the sum of values for minDetectDrvCloneSz")
+            ## }
+            minDetectDrvCloneSz <- sum(initSize)
+        }
         ## minDetectDrvCloneSz <- eFinalMf(initSize, s, detectionDrivers)
         else
             stop("Unknown model")

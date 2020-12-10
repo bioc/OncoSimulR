@@ -1,69 +1,165 @@
-Changes in version 2.19.2 (2020-06-03):
-	- Updated ctb: added Magellan and exprTk and clarified contributions.
+Changes in version 2.99.1 (2020-12-10):
+	- Bump version number for BioC, so it will become version 3.0.0 in
+          next release.
+	- Latest version of exprtk.  
+	
+Changes in version 2.21.995 (2020-12-09):
+	- Vignette: rewrote most FDF examples using names (not numbers)
+	for fitness specification.
+	
+Changes in version 2.21.994 (2020-12-08):
+	- Can start simulation from arbitrary configuration: multiple init
+	mutants (and multispecies functionality).
+	- Freq-dep-fitness does not need to have a WT in fitness tables.
+	- Bumped version (to 2.21.xyz) for new BioC devel.
 
-Changes in version 2.19.1 (2020-05-05):
+Changes in version 2.19.993 (2020-12-01):
+	- Added tests of mutator functionality with freq-dep-fitness.
+
+Changes in version 2.19.992 (2020-09-23):
+	- currentTime can be used in freq-dep-fitness expressions
+	- popSizes is passed to evalGenotypes (not genotypeFitness)
+	- for freq-dep-fitness, type of freq. dep. argument can be guessed
+	  automatically
+
+Changes in version 2.19.991 (2020-06-03):
+	- Updated ctb: added Magellan and exprTk and clarified contributions.
+	- Updated version (to 2.19.xyz) for new BioC devel.
+
+Changes in version 2.17.998 (2020-05-20):
+	- Fixed test.Z-magellan failure in Mac.
 	- Occasional failures of @test.sample-prob.R#42
 	in Windows 386
-
-Changes in version 2.19.0 (2020-05-05):
-	- Bumped version to match current Biocdevel.
-
-Changes in version 2.17.92 (2020-04-27):
-	- Fixed test.Z-magellan failure in Mac.
-
-Changes in version 2.17.91 (2020-04-24):
 	- Fixed Wrestrict warnings in Windows from MAGELLAN's sources.
-	
-Changes in version 2.17.9 (2020-03-16):
+	- Cherry picked from master, as of 2020-05-20:
+	  - from: [13a4061]
+	  - to: [e1ef78a]
+	  - Already added: [519c8a7] to [f716534]
+
+Changes in version 2.17.997 (2020-04-27):
 	- With R-devel, stringsAsFactors = FALSE by default. Fix
 	tests
 	- POM documentation.
-	
-Changes in version 2.17.8 (2020-02-02):
 	- With newest R-devel (01-28) getting
 	  "the condition has length > 1": fixed.
+
+	- Cherry picked from master, as of 2020-03-17:
+	  - [6645512] : OK
+	  - [a273ac2] : OK
+	  - [307dc97] : already added [5436d80]      
+	  - [bcb8543] : not needed (just version date/number)
+	  - [5f42713] : already added [3b488a0] 
+	  - [eb2766b] : already added [3aba92d]   
+
+Changes in version 2.17.996 (2020-01-28):
+	- More freq-dep-fitness examples.
+
+Changes in version 2.17.995 (2020-01-25):
+	- Reverted modifications to plot (see committ d182fbb)
 	
-Changes in version 2.17.7 (2020-01-30):
+Changes in version 2.17.994 (2020-01-25):
+	- plot: allow legend to be outside
+
+Changes in version 2.17.993 (2020-01-23):
 	- Removed dependency on nem, to be deprecated. Adding nem's
 	code (file nem_transitive_reduction.R).
-
-Changes in version 2.17.6 (2020-01-22):
 	- Further additions of MAGELLAN's functionality and Additive
-	model to rfitness
+	model to rfitness. Merging from master.
 
-Changes in version 2.17.5 (2019-12-19):
+	- These is from cherry-picking commits to master, as of 2020-01-22:
+	  - [eda2e75]
+	  - [4ab7e90]
+	  - [8e35201]
+	  - [832945b]
+	  - [aafb84e]
+	  - [fe0891e]
+	  - [286bf57]
+	  - [e221a8e]
+	  - [941df3d]
+	  - [59b9662]
+	  - [39c4d55]
+	  - [a245e44]
+	  - [114a930]
+	  - [49e8d40]
+	  - [df6d0cd]
+	  - [5a0be19]
+	  - [734bf76]
+
+Changes in version 2.17.992 (2019-12-19):
 	- Oooops: forgot Makevars.win
-	
-Changes in version 2.17.4 (2019-12-19):
 	- fno-common: better way of dealing with verbose in magellan.
+	[from commit 912503a and e7b549e in master ]
+	      - the equivalente of commit 9efd3ad is also included.
 
-Changes in version 2.17.3 (2019-12-17):
+Changes in version 2.17.991 (2019-12-18):
 	- Compiles with fno-common (for gcc 10).
-	
-Changes in version 2.17.2 (2019-12-17):
 	- Fixed error "length(x) = 5 > 1' in coercion to 'logical(1)'"
-	
-Changes in version 2.17.1 (2019-11-24):
 	- rfitness: clarified log=TRUE and truncate_at_0 after log.
 	- Magellan_stats: really return a vector.
-	
-Changes in version 2.17.0 (2019-10-25):
-	- Bumped version for BioC-3.11
-	
-Changes in version 2.15.2 (2019-08-14):
 	- Trying to prevent fscanf warning in FitnessLandscape/input.c
 
-Changes in version 2.15.1 (2019-06-06):
+	- These is from cherry-picking commits to master, as of 2019-12-17:
+	  - [60533ab]
+	    - 2.17.3: (here is where fno-common should be)
+  	      [though nothing needed to merge here]
+
+	    - [2dbc895]
+	      - link to Magellan_stats help 
+
+	    - [73854e0]
+  	      - fno-common
+  
+	    - [92b7f4b]
+  	      - renamed verbose [in one of MAGELLAN's C files]
+
+	    - [a6c95a3]
+  	      - install-dir.sh
+
+	    - [ec15dbf]
+  	      - Fixed error "length(x) = 5 > 1' in coercion to 'logical(1)'"
+
+	    - [8a06478]
+  	      - Ochs and Desai: fixed typo 
+
+	    - [94c9df7]
+  	      - do not default to log when using Magellan_stats
+
+	    - [a8b5dae]
+  	      - appveyor
+
+	    - [2e80c74]
+  	      - rfitness: clarified log=TRUE and truncate_at_0 after log.
+  	      - Magellan_stats: really return a vector.
+
+	    - [3e67e80]
+  	      - Trying to prevent fscanf warning in FitnessLandscape/input.c 
+
+	    - [b89a135]
+  	      - appveyor file
+
+Changes in version 2.15.996 (2019-06-12):
+	- Numerical issues in one test in i386 (Windows)
+
+Changes in version 2.15.995 (2019-06-12):
 	- Added MAGELLAN's sources and functionality from MAGELLAN.
-	
-Changes in version 2.15.0 (2019-06-06):
+
+Changes in version 2.15.994 (2019-05-25):
+	- Windoze: giving up on current Rtools35, but working with Rtools40
+	  (see Makevars.win)
+	- Cleaned up a few compiler warnings.  
+
+Changes in version 2.15.99 (2019-05-14):
 	- Bumped version to match current Biocdevel.
-	
+
+Changes in version 2.13.99 (1970-01-01):
+	- frequency dependent fitness. This is a MAJOR addition.
+	- (the date is bogus, of course)
+
 Changes in version 2.13.2 (2019-03-18):
 	- changes in behavior of sample
 	  (see NEWS and https://bugs.r-project.org/bugzilla/show_bug.cgi?id=17494) were
 	  leading to failures of some tests. Using RNGversion in some tests.
-
+	  
 Changes in version 2.13.1 (2019-02-07):
 	- bumped to one over the BioC-3.9 version
 

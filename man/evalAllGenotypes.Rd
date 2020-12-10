@@ -20,25 +20,27 @@ Evaluate fitness/mutator effects of one or all possible genotypes.
 
 \usage{
 
-evalGenotype(genotype, fitnessEffects, verbose = FALSE, echo = FALSE,
-model = "")
+evalGenotype(genotype, fitnessEffects, spPopSizes = NULL,
+             verbose = FALSE, echo = FALSE, model = "",
+             currentTime = 0)
 
-evalGenotypeMut(genotype, mutatorEffects, verbose = FALSE, echo = FALSE)
+evalGenotypeMut(genotype, mutatorEffects, spPopSizes = NULL,
+                verbose = FALSE, echo = FALSE, currentTime = 0)
 
 evalAllGenotypes(fitnessEffects, order = FALSE, max = 256, addwt = FALSE,
-model = "")
+                 model = "", spPopSizes = NULL, currentTime = 0)
 
-evalAllGenotypesMut(mutatorEffects, max = 256, addwt = FALSE)
-
+evalAllGenotypesMut(mutatorEffects, max = 256, addwt = FALSE,
+                    spPopSizes = NULL, currentTime = 0)
 
 evalGenotypeFitAndMut(genotype, fitnessEffects,
-                      mutatorEffects, verbose = FALSE, echo = FALSE,
-                      model = "")
+                      mutatorEffects, spPopSizes = NULL,
+                      verbose = FALSE, echo = FALSE,
+                      model = "", currentTime = 0)
 
 evalAllGenotypesFitAndMut(fitnessEffects, mutatorEffects,
                           order = FALSE, max = 256, addwt = FALSE,
-                          model = "")
-
+                          model = "", spPopSizes = NULL, currentTime = 0)
 
 }
 \arguments{
@@ -68,14 +70,16 @@ evalAllGenotypesFitAndMut(fitnessEffects, mutatorEffects,
     (For \code{evalAllGenotypes}). If TRUE, then order matters. If order
     matters, then generate not only all possible combinations of the genes, but
     all possible permutations for each combination.
-    
 }
+    
 \item{max}{
   (For \code{evalAllGenotypes}). By default, no output is shown if the
   number of possible genotypes exceeds the max. Increase as needed.
 }
 \item{addwt}{
   (For \code{evalAllGenotypes}). Add the wildtype (no mutations) explicitly?
+  In case of \code{frequencyDependentFitness} = TRUE the fitness of WT is always 
+  shown.
 }
   \item{model}{
     Either nothing (the default) or "Bozic". If "Bozic" then the fitness
@@ -93,6 +97,31 @@ evalAllGenotypesFitAndMut(fitnessEffects, mutatorEffects,
   some examples, as shown in the vignette.
 }
 
+\item{spPopSizes}{
+  \code{spPopSizes} is only needed when \code{frequencyDependentFitness = TRUE} and
+  you want to evaluate fitness with \code{\link{evalGenotype}} or 
+  \code{\link{evalAllGenotypes}} (see these functions for more info).
+  
+  \code{spPopSizes} is a numeric vector that contains the population sizes of the clones,
+  in the same order of genotypes appear in the Genotype column of
+  \code{genotFitness}.   In \code{your_object$full_FDF_spec} you can see the
+  genotypes (and the order) for which you need to pass the values
+  (recall genotypes not specified explicitly are given a value of 0 and
+  do not show up in this table).
+
+  It is strongly recommended that \code{spPopSizes} be a named vector to
+  allow for checks and matches to the actual genotypes.
+  
+  
+}
+
+\item{currentTime}{
+  The time of the simulation. It is possible to access to the current time
+  and run interventions for example using the frequency-dependent-fitness
+  functionality or modifying the mutation rate through oncoSimul functions 
+  such as oncoSimulIndiv. With evalAllGenotypes we can check if the fitness 
+  has changed before or after a specific timepoint.
+}
 
 }
 \value{
@@ -110,8 +139,6 @@ for which order does not matter. In all cases, a "WT" denotes the
 wild-type (or, actually, the genotype without any mutations).
 
 
-
-
 If you use both \code{fitnessEffects} and \code{mutatorEffects} in a
 call,  all the genes specified in
   \code{mutatorEffects} MUST be included in the
@@ -120,11 +147,17 @@ call,  all the genes specified in
   specify them in the call to \code{fitnessEffects}, for instance as
   \code{noIntGenes} with an effect of 0.  
 
+When you are in a frequency dependent fitness situation you must set 
+\code{frequencydependentFitness = TRUE} and \code{spPopSizes} must not 
+be NULL and its length must be equal to the number of possible genotypes. 
+Here only \code{evalGenotype} and \code{evalAllGenotypes} make sense.
 
+%% \strong{evalAllGenotypesFitAndMut does not (yet) work with frequency-dependent
+%%   fitness specifications.} (The value returned for fitness is incorrect.)
 }
 
 \author{
-Ramon Diaz-Uriarte
+Ramon Diaz-Uriarte, Sergio Sanchez Carrillo, Juan Antonio Miguel Gonzalez
 }
 
 \note{ Fitness is used in a slight abuse of the language. Right now,
@@ -289,7 +322,23 @@ try(evalGenotype("a1, c2", fm2, verbose = TRUE))
 ## Not what you want either
 try(evalGenotypeMut("a1, c2", fe2, verbose = TRUE))
 
+## Frequency dependent fitness example
+r <- data.frame(Genotype = c("WT", "A", "B", "A, B"), 
+                Fitness = c("1 + 1.5*f_",
+                            "5 + 3*(f_A + f_B + f_A_B)",
+                            "5 + 3*(f_A + f_B + f_A_B)",
+                            "7 + 5*(f_A + f_B + f_A_B)"), 
+                stringsAsFactors = FALSE)
 
+afe <- allFitnessEffects(genotFitness = r, 
+                         frequencyDependentFitness = TRUE, 
+                         frequencyType = "rel")
+                         
+
+evalAllGenotypes(afe, spPopSizes = c(5000, 2500, 2500, 500))
+
+%% ## Recall that evalAllGenotypesFitAndMut does not (yet) work with
+%% ## frequency-dependent fitness specifications.
 }
 
 \keyword{ misc }

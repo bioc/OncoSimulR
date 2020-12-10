@@ -1,5 +1,4 @@
-//     Copyright 2013, 2014, 2015, 2016 Ramon Diaz-Uriarte
-
+//     Copyright 2013-2021 Ramon Diaz-Uriarte
 
 //     This program is free software: you can redistribute it and/or modify
 //     it under the terms of the GNU General Public License as published by
@@ -13,7 +12,6 @@
 
 //     You should have received a copy of the GNU General Public License
 //     along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 
 
 // #include "OncoSimul.h"
@@ -33,7 +31,7 @@
 #include <sstream>
 #include <string>
 #include <ctime>
-#include <sys/time.h> 
+#include <sys/time.h>
 #include <stdexcept>
 
 using namespace Rcpp;
@@ -50,14 +48,18 @@ double g_tmp1_nr = DBL_MAX;
 #endif
 
 
+// Obtain birth and death for a new genotype.
+//     return values that signal no-viability when appropriate
+//                    (to avoid adding to tables)
+//     parentP used to provide the model-specific details
 void nr_fitness(spParamsP& tmpP,
 		const spParamsP& parentP,
 		const Genotype& ge,
 		const fitnessEffectsAll& F,
-		const TypeModel typeModel) {
-		       // const double& genTime,
-		       // const double& adjust_fitness_B,
-		       // const double& adjust_fitness_MF) {
+		const TypeModel typeModel,
+		std::vector<Genotype>& Genotypes,
+		std::vector<spParamsP>& popParams,
+		const double& currentTime) {
 
   // We want a way to signal immediate non-viability of a clone. For
   // "birth-based" models that happens when any s = -1, as the fitness is
@@ -65,45 +67,46 @@ void nr_fitness(spParamsP& tmpP,
   // we never reach into algo2, etc, leading to numerical problems.
 
   // With Bozic models, which are "death-based", it is different. For
-  // bozic2, birth is bounded, so any death > 2 would lead to birth <
-  // 0. For bozic1, deaths of around 50 lead to numerical issues.  The
-  // general rule is: set those mutations to -inf, so prodDeathFitness
-  // returns an inf for death, and that is recognized as "no
-  // viability" (anything with death > 99)
+  // bozic1, deaths of around 50 lead to numerical issues.  The general
+  // rule is: set those mutations to -inf, so prodDeathFitness returns an
+  // inf for death, and that is recognized as "no viability" (anything
+  // with death > 99)
 
   // The ones often used are bozic1, exp, mcfarlandlog
 
+  // For frequency dependence we need to add the candidate genotype
+  // to evaluate fitness. At end we pop it out.
+  // FIXME
+  // Could use const and create a copy, but possibly expensive?
+  // This is FDF: those tables are most likely tiny
+  if(F.frequencyDependentFitness){
+    popParams.push_back(tmpP);
+    Genotypes.push_back(ge);
+  }
+
   if(typeModel == TypeModel::bozic1) {
-    tmpP.death = prodDeathFitness(evalGenotypeFitness(ge, F));
+    tmpP.death = prodDeathFitness(evalGenotypeFitness(ge, F, Genotypes, popParams, currentTime));
     if( tmpP.death > 99) {
-      tmpP.birth = 0.0; 
+      tmpP.birth = 0.0;
     } else {
       tmpP.birth = 1.0;
     }
-  // } else if (typeModel == TypeModel::bozic2) {
-  //   double pp = prodDeathFitness(evalGenotypeFitness(ge, F));
-  //   tmpP.birth = std::max(0.0, (1.0/genTime) * (1.0 - 0.5 * pp ));
-  //   tmpP.death = (0.5/genTime) * pp;
   } else {
-    double fitness = prodFitness(evalGenotypeFitness(ge, F));
+    double fitness = prodFitness(evalGenotypeFitness(ge, F, Genotypes, popParams, currentTime));
     if( fitness <= 0.0) {
       tmpP.absfitness = 0.0;
       tmpP.death = 1.0;
-      tmpP.birth = 0.0; 
+      tmpP.birth = 0.0;
     } else{
-      // Set appropriate defaults and change only as needed
-      tmpP.death = parentP.death;
-      tmpP.absfitness = parentP.absfitness;
+      // Set appropriate model-specific defaults and change only as needed
+      tmpP.death = parentP.death; // will use 1 for exp, log whatever for McF
+      tmpP.absfitness = parentP.absfitness; // was used for old Beerenwinkel model
       tmpP.birth = fitness;
-      // exp, mcfarland, and mcfarlandlog as above. Next are the two exceptions.
-      // if(typeModel == TypeModel::beerenwinkel) {
-      // 	tmpP.absfitness = fitness; 
-      // 	tmpP.birth = adjust_fitness_B * tmpP.absfitness;
-      // } else if(typeModel == TypeModel::mcfarland0) {
-      // 	tmpP.absfitness = fitness;
-      // 	tmpP.birth = adjust_fitness_MF * tmpP.absfitness;
-      // }
-    }
+      }
+  }
+  if(F.frequencyDependentFitness){
+    popParams.pop_back();
+    Genotypes.pop_back();
   }
   // Exp and McFarland and McFarlandlog are also like Datta et al., 2013
   // An additional driver gene mutation increases a cell’s fitness by a
@@ -197,7 +200,7 @@ inline void driverCounts(int& maxNumDrivers,
 
 
 void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
-					double& totPopSize, 
+					double& totPopSize,
 					double& lastStoredSample,
 					std::vector<Genotype>& genot_out,
 					//std::vector<unsigned long long>& sp_id_out,
@@ -213,7 +216,7 @@ void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
 					int& lastMaxDr,
 					double& done_at,
 					const std::vector<Genotype>& Genotypes,
-					const std::vector<spParamsP>& popParams, 
+					const std::vector<spParamsP>& popParams,
 					const double& currentTime,
 					const double& keepEvery,
 					const double& detectionSize,
@@ -289,7 +292,7 @@ void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
 	    if(thisg == this_fix) {
 	      popSize_fixation[fc] = popParams[i].popSize;
 	    }
-	  } else {	  
+	  } else {
 	  // gene combination in fixation element present in genotype?
 	    if(std::includes(thisg.begin(), thisg.end(),
 			     fixation_l[fc].begin(), fixation_l[fc].end()) ) {
@@ -300,7 +303,7 @@ void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
       }
       // Any fixated? But avoid trivial of totPopSize of 0!
       // Now check of > 0 is redundant as we check totPopSize > 0
-      // FIXME do we want tolerance around that value? 
+      // FIXME do we want tolerance around that value?
       double max_popSize_fixation =
 	*std::max_element(popSize_fixation.begin(), popSize_fixation.end());
       if( (max_popSize_fixation >= fixation_min_size ) &&
@@ -326,7 +329,7 @@ void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
   //     DP2(popSize_fixation[fc]);
   //   }
   //   DP2(totPopSize);
-    
+
   // }
   
   if (keepEvery < 0) {
@@ -390,7 +393,7 @@ void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
 	}
       } else if (currentTime >= done_at) {
   	simulsDone = true;
-  	reachDetection = true; 
+  	reachDetection = true;
       }
     } else if( (lastMaxDr >= detectionDrivers) &&
 	       (popSizeOverDDr >= minDetectDrvCloneSz) &&
@@ -426,29 +429,29 @@ void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
 	       ( checkSizePNow  &&
 		 detectedSizeP(totPopSize, cPDetect, PDBaseline, ran_gen)) ) {
       simulsDone = true;
-      reachDetection = true; 
+      reachDetection = true;
     }
   }
 
-  
+
   // if( checkSizePNow && (lastMaxDr >= detectionDrivers) &&
   // 	       detectedSizeP(totPopSize, cPDetect, PDBaseline, ran_gen) )  {
   //   simulsDone = true;
-  //   reachDetection = true; 
+  //   reachDetection = true;
   // }
-  
-  
+
+
   if(totPopSize >= fatalPopSize) {
     Rcpp::Rcout << "\n\totPopSize > " << fatalPopSize
 		<<". You are likely to loose precision and run into numerical issues\n";
        }
-  
+
   if(simulsDone)
     storeThis = true;
 
 
-  
-  
+
+
   // Reuse some info for POM
 
   if( storeThis ) {
@@ -459,12 +462,12 @@ void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
     int largest_clone = -99;
 
     time_out.push_back(currentTime);
-    
+
     for(size_t i = 0; i < popParams.size(); ++i) {
       genot_out.push_back(Genotypes[i]);
       popSizes_out.push_back(popParams[i].popSize);
       index_out.push_back(outNS_i);
-      
+
       if(popParams[i].popSize > l_pop_s) {
 	l_pop_s = popParams[i].popSize;
 	ndr_lp = getGenotypeDrivers(Genotypes[i], drv).size();
@@ -483,8 +486,8 @@ void nr_totPopSize_and_fill_out_crude_P(int& outNS_i,
     } else {
       addToPOM(pom, "_EXTINCTION_");
     }
-  } 
-  
+  }
+
   if( !std::isfinite(totPopSize) ) {
     throw std::range_error("totPopSize not finite");
   }
@@ -524,7 +527,7 @@ inline void nr_reshape_to_outNS(Rcpp::NumericMatrix& outNS,
 				const vector<double>& popSizes_out,
 				const vector<int>& index_out,
 				const vector<double>& time_out){
-  
+
   vector<vector<int> >::const_iterator fbeg = uniqueGenotV.begin();
   vector<vector<int> >::const_iterator fend = uniqueGenotV.end();
 
@@ -556,8 +559,8 @@ Rcpp::NumericMatrix create_outNS(const vector<vector<int> >& uniqueGenotypes,
     outNS_r = 1;
     outNS_c = 1;
     create_outNS = 0;
-  } else if ( 
-	     static_cast<long>((uniqueGenotypes.size()+1) * (outNS_i+1)) * 8 > 
+  } else if (
+	     static_cast<long>((uniqueGenotypes.size()+1) * (outNS_i+1)) * 8 >
 	     (maxram * (1024*1024) ) ) {
     Rcpp::Rcout << "\nWARNING: Return outNS object > maxram. Not created.\n";
     outNS_r = 1;
@@ -568,13 +571,13 @@ Rcpp::NumericMatrix create_outNS(const vector<vector<int> >& uniqueGenotypes,
     outNS_c = uniqueGenotypes.size() + 1;
     create_outNS = 1;
   }
-  Rcpp::NumericMatrix outNS(outNS_r, outNS_c);  
+  Rcpp::NumericMatrix outNS(outNS_r, outNS_c);
   if(create_outNS) {
     nr_reshape_to_outNS(outNS, uniqueGenotypes,
-			genot_out_v, 
-			popSizes_out, 
+			genot_out_v,
+			popSizes_out,
 			index_out, time_out);
-    
+
   } else {
     outNS(0, 0) = -99;
   }
@@ -621,9 +624,9 @@ std::string driversToNameString(const std::vector<int>& presentDrivers,
 // No longer used.
 // std::string genotypeToIntString(const std::vector<int>& genotypeV,
 // 				   const fitness_as_genes& fg) {
-  
+
 //   // The genotype vectors are returned as a string of ints.
-  
+
 //   std::string strGenotype;
 
 //   std::vector<int> order_int;
@@ -642,9 +645,9 @@ std::string driversToNameString(const std::vector<int>& presentDrivers,
 //   std::string rest;
 //   std::string comma = "";
 
-  
+
 //   for(auto const &g : order_int) {
-// #ifdef _WIN32  
+// #ifdef _WIN32
 //      order_part += (comma + SSTR(g));
 // #endif
 // #ifndef _WIN32
@@ -654,7 +657,7 @@ std::string driversToNameString(const std::vector<int>& presentDrivers,
 //   }
 //   comma = "";
 //   for(auto const &g : rest_int) {
-// #ifdef _WIN32  
+// #ifdef _WIN32
 //      rest += (comma + SSTR(g));
 // #endif
 // #ifndef _WIN32
@@ -674,19 +677,19 @@ std::string driversToNameString(const std::vector<int>& presentDrivers,
 std::string genotypeToNameString(const std::vector<int>& genotypeV,
 				 const fitness_as_genes& fg,
 				 const std::map<int, std::string>& intName) {
-  
+
   // The genotype vectors are returned as a string of names. Similar to
   // the Int version, but we map here to names.
 
   // As the fitness is stored in terms of modules, not genes, we need to
   // check if a _gene_ is in the order part or not by mapping back to
   // modules. That is the fitness_as_genes argument.
-  
+
   std::string strGenotype;
 
   std::vector<int> order_int;
   std::vector<int> rest_int;
-   
+
   for(auto const &g : genotypeV) {
     if( binary_search(fg.orderG.begin(), fg.orderG.end(), g)) {
       order_int.push_back(g);
@@ -699,7 +702,7 @@ std::string genotypeToNameString(const std::vector<int>& genotypeV,
   std::string order_part;
   std::string rest;
   std::string comma = "";
-  
+
   // FIXME: when sure no problems, remove at if needed for speed.
   for(auto const &g : order_int) {
     order_part += (comma + intName.at(g));
@@ -745,7 +748,7 @@ std::vector<std::string> genotypesToNameString(const std::vector< vector<int> >&
 //       for(auto const &v: uniqueGenotypesV )
 // 	gs.push_back(genotypeToIntString(v, fg));
 //   }
-  
+
 //   // exercise: do it with lambdas
 //   // std::transform(uniqueGenotypesV.begin(), uniqueGenotypesV.end(),
 //   // 		 back_inserter(gs), vectorGenotypeToString);
@@ -781,29 +784,29 @@ static void nr_sample_all_pop_P(std::vector<int>& sp_to_remove,
     STOPASSERT(popParams[i].timeLastUpdate >= 0.0);
     STOPASSERT(tSample - popParams[i].timeLastUpdate >= 0.0);
 #ifdef DEBUGV
-    Rcpp::Rcout << "\n\n     ********* 5.9 ******\n " 
-	      << "     Species  = " << i 
+    Rcpp::Rcout << "\n\n     ********* 5.9 ******\n "
+	      << "     Species  = " << i
 		<< "\n      Genotype = ";
     print_Genotype(Genotypes[i]); //genotypeSingleVector(Genotypes[i])
-    //	      << "\n      sp_id = " << genotypeSingleVector(Genotypes[i]) // sp_id[i]  
-    Rcpp::Rcout << "\n      pre-update popSize = " 
-	      << popParams[i].popSize 
-	      << "\n      time of sample = " << tSample 
-	      << "\n      popParams[i].timeLastUpdate = " 
-	      << popParams[i].timeLastUpdate 
-	      << ";\n     t for Algo2 = " 
-	      << tSample - popParams[i].timeLastUpdate 
+    //	      << "\n      sp_id = " << genotypeSingleVector(Genotypes[i]) // sp_id[i]
+    Rcpp::Rcout << "\n      pre-update popSize = "
+	      << popParams[i].popSize
+	      << "\n      time of sample = " << tSample
+	      << "\n      popParams[i].timeLastUpdate = "
+	      << popParams[i].timeLastUpdate
+	      << ";\n     t for Algo2 = "
+	      << tSample - popParams[i].timeLastUpdate
 	      << " \n     species R " << popParams[i].R
 	      << " \n     species W " << popParams[i].W
 	      << " \n     species death " << popParams[i].death
 	      << " \n     species birth " << popParams[i].birth;
 #endif
 
-    // Account for forceSampling. When 
+    // Account for forceSampling. When
     // forceSampling, popSize for at least one species
     // was updated in previous loop, so we skip that one
     if(tSample > popParams[i].timeLastUpdate) {
-      popParams[i].popSize = 
+      popParams[i].popSize =
 	Algo2_st(popParams[i], tSample, mutationPropGrowth);
     }
     if( popParams[i].popSize <=  0.0 ) {
@@ -815,13 +818,13 @@ static void nr_sample_all_pop_P(std::vector<int>& sp_to_remove,
       sp_to_remove.push_back(i);
 
 #ifdef DEBUGV
-      Rcpp::Rcout << "\n\n     Removing species i = " << i 
+      Rcpp::Rcout << "\n\n     Removing species i = " << i
 		  << " with genotype = ";
       print_Genotype(Genotypes[i]); //genotypeSingleVector(Genotypes[i]);
 #endif
-    } 
+    }
 #ifdef DEBUGV
-    Rcpp::Rcout << "\n\n   post-update popSize = " 
+    Rcpp::Rcout << "\n\n   post-update popSize = "
 	      << popParams[i].popSize << "\n";
 #endif
   }
@@ -918,9 +921,15 @@ void addToPOM(POM& pom,
 }
 
 
+// // zz4: maybe use this later
+// // Initialize the population. Deal with initMutant
+// void initPop(const TypeModel typeModel,
+// 	     const std::vector<std::vector<int> >& initMutant,
+// 	     const std::vector<double>& initSize,
+// 	     )
 
 static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
-			const double& initSize,
+			 const std::vector<double>& initSize,
 			const double& K,
 			// const double& alpha,
 			// const double& genTime,
@@ -930,8 +939,8 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 			// const double& mu,
 			const double& death,
 			const double& keepEvery,
-			const double& sampleEvery,		     
-			const std::vector<int>& initMutant,
+			const double& sampleEvery,
+			const std::vector<std::vector<int> >& initMutant,
 			const time_t& start_time,
 			const double& maxWallTime,
 			const double& finalTime,
@@ -982,7 +991,7 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 			 std::map<std::string, std::string>& lod,
 			 // LOD& lod,
 			 POM& pom) {
-  
+
   double nextCheckSizeP = checkSizePEvery;
   const int numGenes = fitnessEffects.genomeSize;
 
@@ -993,29 +1002,37 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
   // We can probably go down to 1e-13. 1e-16 is not good as we get lots
   // of pE.f not finite. 1e-15 is probably too close, and even if no pE.f
   // we can get strange behaviors.
+  // Ensures between mymindummy and targetmindummy
   double dummyMutationRate = std::max(std::min(minmu/1.0e4, targetmindummy),
 				      mymindummy);
+
   // This should very rarely happen:
-  if(minmu <= mymindummy) { // 1e-9 
-    double newdd = minmu/100.0;
+  if(minmu <= dummyMutationRate) { 
+    double newdd = minmu/10.0;
     Rcpp::Rcout << "WARNING: the smallest mutation rate is "
-		<< "<= " << mymindummy << ". That is a really small value"
+		<< "<= " << dummyMutationRate << ". That is a really small value "
 		<< "(per-base mutation rate in the human genome is"
 		<< " ~ 1e-11 to 1e-9). "
-		<< "Setting dummyMutationRate to your min/100 = "
+		<< "Setting dummyMutationRate to your min/10 = "
 		<< newdd
 		<< ". There can be numerical problems later.\n";
     dummyMutationRate = newdd;
+  }
+
+  if(verbosity > 1) {
+    Rcpp::Rcout << "\n dummyMutationRate set at " << dummyMutationRate
+		<< ".  That is the smallest possible mutation rate and the one"
+		<< " for the null event.";
   }
   // double dummyMutationRate = 1e-10;
   // ALWAYS initialize this here, or reinit or rezero
   genot_out.clear();
 
   phylog = PhylogName();
-  // lod = LOD(); 
+  // lod = LOD();
   lod.clear();
   pom = POM();
-  
+
   popSizes_out.clear();
   index_out.clear();
   time_out.clear();
@@ -1030,12 +1047,8 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
   sampleLargestPopSize.clear();
   sampleMaxNDr.clear();
   sampleNDrLargestPop.clear();
-  // end of rezeroing.
+ 
 
-  
-  // }
-  // anyForceRerunIssues = false;
-  
   bool forceSample = false;
   bool simulsDone = false;
   double lastStoredSample = 0.0;
@@ -1056,14 +1069,14 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
   //int type_resize = 0;
 
   int iterL = 1000;
-  int speciesL = 100; 
+  int speciesL = 100;
   //int timeL = 1000;
 
   int iterInterrupt = 50000; //how large should we make this?
-  
+
   double tmpdouble1 = 0.0;
   double tmpdouble2 = 0.0;
-  
+
   std::vector<int>sp_to_remove(1);
   sp_to_remove.reserve(10000);
 
@@ -1072,92 +1085,28 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
   int u_1 = -99;
   int u_2 = -99;
 
-  Genotype newGenotype;
-  std::vector<Genotype> Genotypes(1);
-  Genotypes[0] = wtGenotype(); //Not needed, but be explicit.
-  
-  std::vector<spParamsP> popParams(1);
-
-      // // FIXME debug
-      // Rcpp::Rcout << "\n popSize[0]  at 1 ";
-      // print_spP(popParams[0]);
-      // // end debug
-  
-  
   const int sp_per_period = 5000;
-  popParams.reserve(sp_per_period);
-  Genotypes.reserve(sp_per_period);
 
-      // // FIXME debug
-      // Rcpp::Rcout << "\n popSize[0]  at 01 ";
-      // print_spP(popParams[0]);
-      // // end debug
-
-  
-  spParamsP tmpParam; 
-  init_tmpP(tmpParam);
-  init_tmpP(popParams[0]);
-  popParams[0].popSize = initSize;
-  totPopSize = initSize;
-
-
-      // // FIXME debug
-      // Rcpp::Rcout << "\n popSize[0]  at 10000 ";
-      // print_spP(popParams[0]);
-      // // end debug
-
-
-  
+ 
   std::vector<int>mutablePos(numGenes); // could be inside getMuatedPos_bitset
 
-    // multimap to hold nextMutationTime
+  // multimap to hold nextMutationTime
   std::multimap<double, int> mapTimes;
-  //std::multimap<double, int>::iterator m1pos;
 
-  // int ti_dbl_min = 0;
-  // int ti_e3 = 0;
   ti_dbl_min = 0;
   ti_e3 = 0;
 
-
-      // // FIXME debug
-      // Rcpp::Rcout << "\n popSize[0]  at 10002 ";
-      // print_spP(popParams[0]);
-      // // end debug
-
-
-  
-  // // Beerenwinkel
-  // double adjust_fitness_B = -std::numeric_limits<double>::infinity();
+ 
   //McFarland
   double adjust_fitness_MF = -std::numeric_limits<double>::infinity();
-
   // for McFarland error
   em1 = 0.0;
   em1sc = 0.0;
-  // n_0 = 0.0;
-  // n_1 = 0.0;
-  // double tps_0; //, tps_1; 
-  // tps_0 = totPopSize;
-  // tps_1 = totPopSize;
-
-  // en1 = 0;
-  double totPopSize_previous = totPopSize;
-  double DA_previous = log1p(totPopSize_previous/K);
-
-      // // FIXME debug
-      // Rcpp::Rcout << "\n popSize[0]  at 10004 ";
-      // print_spP(popParams[0]);
-      // // end debug
-
-  
   
   int lastMaxDr = 0;
   double done_at = -9;
-
-
+  
   int num_successive_fixation = 0; // none so far
-
   
 #ifdef MIN_RATIO_MUTS_NR
   g_min_birth_mut_ratio_nr = DBL_MAX;
@@ -1165,206 +1114,236 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
   g_tmp1_nr = DBL_MAX;
 #endif
 
-      // // FIXME debug
-      // Rcpp::Rcout << " popSize[0]  at 1b ";
-      // print_spP(popParams[0]);
-      // // end debug
-
-    // This long block, from here to X1, is ugly and a mess!
-  // This is what takes longer to figure out whenever I change
-  // anything. FIXME!!
-  if(initMutant.size() > 0) {
-    Genotypes[0] = createNewGenotype(wtGenotype(),
-				     initMutant,
-				     fitnessEffects,
-				     ran_gen,
-				     false);
-    int numGenesInitMut = Genotypes[0].orderEff.size() +
-      Genotypes[0].epistRtEff.size() + Genotypes[0].rest.size();
-    int numGenesGenotype = fitnessEffects.allGenes.size();
-    popParams[0].numMutablePos = numGenesGenotype - numGenesInitMut;
-    // Next two are unreachable since caught in R.
-    // But just in case, since it would lead to seg fault.
-    if(popParams[0].numMutablePos < 0)
-      throw std::invalid_argument("initMutant's genotype has more genes than are possible.");
-    if(popParams[0].numMutablePos == 0)
-      throw std::invalid_argument("initMutant has no mutable positions: genotype with all genes mutated.");
-    // popParams[0].numMutablePos = numGenes - 1;
-    // From obtainMutations, but initMutant an int vector. But cumbersome.
-    // std::vector<int> sortedg = convertGenotypeFromInts(initMutant);
-    // sort(sortedg.begin(), sortedg.end());
-    // std::vector<int> nonmutated;
-    // set_difference(fitnessEffects.allGenes.begin(), fitnessEffects.allGenes.end(),
-    // 		   sortedg.begin(), sortedg.end(),
-    // 		   back_inserter(nonmutated));
-    // popParams[0].numMutablePos = nonmutated.size();
 
 
+  /////////////////////////////////////////////////////////////////
+  ///
+  ///  Initialize population. Former initMutant stuff   //////////
+  ///
+  //
+     
+  numSpecies = initSize.size();
+  totPopSize = std::accumulate(initSize.begin(), initSize.end(), 0.0);
+  
+  std::vector<Genotype> Genotypes(0);
+  std::vector<spParamsP> popParams(0);
+  popParams.reserve(sp_per_period);
+  Genotypes.reserve(sp_per_period);
 
-    // Commenting out the unused models!
-    // if(typeModel == TypeModel::beerenwinkel) {
-      
-    //   popParams[0].death = 1.0; //note same is in McFarland.
-    //   // But makes sense here; adjustment in beerenwinkel is via fitness
-      
-    //   // initialize to prevent birth/mutation warning with Beerenwinkel
-    //   // when no mutator. O.w., the defaults
-    //   if(!mutationPropGrowth)
-    // 	popParams[0].mutation = mu * popParams[0].numMutablePos;
-    //   popParams[0].absfitness = prodFitness(evalGenotypeFitness(Genotypes[0],
-    // 								fitnessEffects));
-    //   updateRatesBeeren(popParams, adjust_fitness_B, initSize,
-    // 			currentTime, alpha, initSize, 
-    // 			mutationPropGrowth, mu);
-    // } else if(typeModel == TypeModel::mcfarland0) {
-    //   // death equal to birth of a non-mutant.
-    //   popParams[0].death = log1p(totPopSize/K); // log(2.0), except rare cases
-    //   if(!mutationPropGrowth)
-    // 	popParams[0].mutation = mu * popParams[0].numMutablePos;
-    //   popParams[0].absfitness = prodFitness(evalGenotypeFitness(Genotypes[0],
-    // 								fitnessEffects));
-    //   updateRatesMcFarland0(popParams, adjust_fitness_MF, K, 
-    // 			    totPopSize,
-    // 			    mutationPropGrowth, mu);
-    // } else if(typeModel == TypeModel::mcfarland) {
-    //   popParams[0].death = totPopSize/K;
-    //   popParams[0].birth = prodFitness(evalGenotypeFitness(Genotypes[0],
-    // 								fitnessEffects));
-    // } else       if(typeModel == TypeModel::mcfarlandlog) {
+  // Placeholders for genotype and params created at mutation (or
+  //     initialization)
+  Genotype newGenotype = wtGenotype();
+  spParamsP tmpParam;
+  init_tmpP(tmpParam);
 
-    if(typeModel == TypeModel::mcfarlandlog) {
-      popParams[0].death = log1p(totPopSize/K);
-      popParams[0].birth = prodFitness(evalGenotypeFitness(Genotypes[0],
-								fitnessEffects));
-    } else if(typeModel == TypeModel::bozic1) {
-      tmpParam.birth =  1.0;
-      tmpParam.death = -99.9;
-    // } else if (typeModel == TypeModel::bozic2) {
-    //   tmpParam.birth =  -99;
-    //   tmpParam.death = -99;
-    } else if (typeModel == TypeModel::exp) {
-      tmpParam.birth =  -99;
-      tmpParam.death = death;
-    } else {
-      // caught in R, so unreachable here
-      throw std::invalid_argument("this ain't a valid typeModel");
-    } 
-    // if( (typeModel != TypeModel::beerenwinkel) && (typeModel != TypeModel::mcfarland0) 
-    // 	&& (typeModel != TypeModel::mcfarland) && (typeModel != TypeModel::mcfarlandlog)) // wouldn't matter
-    //   nr_fitness(popParams[0], tmpParam,
-    // 		 Genotypes[0],
-    // 		 fitnessEffects,
-    // 		 typeModel, genTime,
-    // 		 adjust_fitness_B, adjust_fitness_MF);
-    if( (typeModel != TypeModel::mcfarlandlog)) // wouldn't matter
-      nr_fitness(popParams[0], tmpParam,
-		 Genotypes[0],
-		 fitnessEffects,
-		 typeModel);
-    // , genTime);
-    //		 adjust_fitness_B, adjust_fitness_MF);
-    // we pass as the parent the tmpParam; it better initialize
-    // everything right, or that will blow. Reset to init
+  // Create temporal copy: we were passed a const. If there are no initMutants,
+  // we create the initMutant with just the wildtype
+  
+  std::vector < std::vector<int> > tmpInitMutant;
+  if(initMutant.size() == 0) {
+    // Empty genotype
+    tmpInitMutant = {{}};
+  } else {
+    tmpInitMutant = initMutant;
+  }
+
+  // //zz4: debug print_ini
+  // print_initMutant(tmpInitMutant);
+  // if(tmpInitMutant.size() == 0) throw std::logic_error("tmpInitMutant is of size 0");
+
+
+
+  int numGenesInitMut = -99;
+  const int numLoci = fitnessEffects.allGenes.size();
+
+  // Loop twice: create genotypes and fill up population sizes in
+  // popParams
+
+  // Then compute fitness (which might be affected by identity and
+  // population size of other genotypes), W, R, mutation, etc
+
+  // We do not remove non-viable genotypes. 
+  
+  /////  Fill up Genotypes and popParams
+  for(size_t m = 0; m != tmpInitMutant.size(); ++m ) {
     init_tmpP(tmpParam);
-    addToPOM(pom, Genotypes[0], intName, genesInFitness);
-  } else { //no initMutant
-    popParams[0].numMutablePos = numGenes;
+    newGenotype = wtGenotype();
+    std::vector<int> this_initMutant = tmpInitMutant[m];
+    // Create the new genotype by adding mutations into a wtGenotype
+    newGenotype = createNewGenotype(wtGenotype(),
+				    this_initMutant, 
+				    fitnessEffects,
+				    ran_gen,
+				    false);
     
-    // if(typeModel == TypeModel::beerenwinkel) {
-    //   popParams[0].death = 1.0;
-    //   // initialize to prevent birth/mutation warning with Beerenwinkel
-    //   // when no mutator. O.w., the defaults
-    //   if(!mutationPropGrowth)
-    // 	popParams[0].mutation = mu * popParams[0].numMutablePos;
-    //   popParams[0].absfitness = 1.0;
-    //   updateRatesBeeren(popParams, adjust_fitness_B, initSize,
-    // 			currentTime, alpha, initSize, 
-    // 			mutationPropGrowth, mu);
-    // } else if(typeModel == TypeModel::mcfarland0) {
-    //   popParams[0].death = log1p(totPopSize/K);
-    //   if(!mutationPropGrowth)
-    // 	popParams[0].mutation = mu * popParams[0].numMutablePos;
-    //   popParams[0].absfitness = 1.0;
-    //   updateRatesMcFarland0(popParams, adjust_fitness_MF, K, 
-    // 			    totPopSize,
-    // 			    mutationPropGrowth, mu);
-    // } else if(typeModel == TypeModel::mcfarland) {
-    //   popParams[0].birth = 1.0;
-    //   popParams[0].death = totPopSize/K;
-    //   // no need to call updateRates
-    // } else if(typeModel == TypeModel::mcfarlandlog) {
-    if(typeModel == TypeModel::mcfarlandlog) {
-      popParams[0].birth = 1.0;
-      popParams[0].death = log1p(totPopSize/K);
-      // no need to call updateRates
-    } else if(typeModel == TypeModel::bozic1) {
-       popParams[0].birth = 1.0;
-       popParams[0].death = 1.0;
-    // } else if (typeModel == TypeModel::bozic2) {
-    //   popParams[0].birth = 0.5/genTime;
-    //   popParams[0].death = 0.5/genTime;
-    } else if (typeModel == TypeModel::exp) {
-      popParams[0].birth = 1.0;
-      popParams[0].death = death;
+    numGenesInitMut = newGenotype.orderEff.size() +
+      newGenotype.epistRtEff.size() + newGenotype.rest.size() +
+      newGenotype.flGenes.size();
+
+    if( (!(numGenesInitMut == 0)) != (!(newGenotype == wtGenotype()))  )
+      throw std::logic_error("InitMutant: Either a WT genotype without 0 mutations or a non-WT with 0 mutations");
+
+    
+    tmpParam.numMutablePos = numLoci - numGenesInitMut;
+    // Next unreachable since caught in R.
+    // But just in case, since it would lead to seg fault.
+    if(tmpParam.numMutablePos < 0)
+      throw std::invalid_argument("initMutant's genotype has more genes than are possible.");
+
+    
+    tmpParam.popSize = initSize[m];
+    popParams.push_back(tmpParam);
+    Genotypes.push_back(newGenotype);
+    // birth, death, W, R, absfitness: updated when fitness, below
+    // mutation: below, when calling mutationFromScratch
+    // pv: when calling mapTimes_updateP
+    // timeLastUpdate updated below, right after pv
+
+  }
+
+  tmpInitMutant.clear();
+   
+  // Assign fitness, mutation, W, R. In that order. Then pv and add to POM.
+  // The last two are specific of BNB. Beware if using a different algorithm
+  for(size_t m = 0; m != popParams.size(); ++m ) {
+    if(typeModel == TypeModel::bozic1) {
+      popParams[m].death =
+	prodDeathFitness(evalGenotypeFitness(Genotypes[m],
+					     fitnessEffects, Genotypes, popParams,
+					     currentTime));
+      popParams[m].birth = 1.0;
+      if(!fitnessEffects.frequencyDependentFitness &&
+	 (popParams[m].numMutablePos == numLoci ) &&
+	 (popParams[m].death != 1.0)) throw std::logic_error("WT initMutant in non-FDF must have death rate 1 with this model");
+      // Usual runs without initMutant can use this
+      if( (popParams[m].death == 1.0) &&
+	  (initMutant.size() != 0)) Rcpp::Rcout << "Init Mutant with death == 1.0\n";
+      if(popParams[m].death >  99) Rcpp::warning("Init Mutant with death > 99");
     } else {
-      throw std::invalid_argument("this ain't a valid typeModel");
+      
+      popParams[m].birth =
+	prodFitness(evalGenotypeFitness(Genotypes[m],
+					fitnessEffects, Genotypes, popParams,
+					currentTime));
+      if (typeModel == TypeModel::exp) 
+	popParams[m].death = death; // passed from R; set at 1
+      if (typeModel == TypeModel::mcfarlandlog)
+	popParams[m].death = log1p(totPopSize/K);
+      if (typeModel == TypeModel::mcfarlandlog_d)
+	popParams[m].death = std::max(1.0, log1p(totPopSize/K));
+      
+      if(!fitnessEffects.frequencyDependentFitness &&
+	 (popParams[m].numMutablePos == numLoci ) &&
+	 (popParams[m].birth != 1.0) ) throw std::logic_error("WT initMutant in non-FDF must have birth rate 1 with this model");
+      if((popParams[m].birth == 1.0) &&
+	 (initMutant.size() != 0) ) Rcpp::Rcout << "Init Mutant with birth == 1.0\n";
+      if(popParams[m].birth == 0.0) Rcpp::warning("Init Mutant with birth == 0.0");
     }
+
+    popParams[m].mutation = mutationFromScratch(mu, popParams[m], Genotypes[m],
+						fitnessEffects, mutationPropGrowth,
+						full2mutator, muEF,
+						Genotypes, popParams,
+						currentTime,
+						dummyMutationRate);
+    W_f_st(popParams[m]);
+    R_f_st(popParams[m]);
   }
 
-
+  // POM and storing output
+  // Code repeated from end of  nr_totPopSize_and_fill_out_crude_P
+  // (except the keepEvery condition)
+  // Finding max_ndr from code at start of that function
   
-
-  
-  // // these lines (up to, and including, R_F_st)
-  // // not needed with mcfarland0 or beerenwinkel
-  // if(mutationPropGrowth)
-  //   popParams[0].mutation = mu * popParams[0].birth * popParams[0].numMutablePos;
-  // else
-  //   popParams[0].mutation = mu * popParams[0].numMutablePos;
-
-  popParams[0].mutation = mutationFromScratch(mu, popParams[0], Genotypes[0],
-					      fitnessEffects, mutationPropGrowth,
-					      full2mutator, muEF);  
-  W_f_st(popParams[0]);
-  R_f_st(popParams[0]);
-
-  
-  // X1: end of mess of initialization block
-
-  popParams[0].pv = mapTimes.insert(std::make_pair(-999, 0));
-
-  if( keepEvery > 0 ) {
-    // We keep the first ONLY if we are storing more than one.
+   if( keepEvery > 0 ) {
+     // We keep the first genotype(s) ONLY if we are storing more than one.
+    lastStoredSample = currentTime;
     outNS_i++;
+    int ndr_lp = 0;
+    double l_pop_s = 0.0;
+    int largest_clone = -99;
+
+    int tmp_ndr = 0;
+    int max_ndr = 0;
+
     time_out.push_back(currentTime);
+
+    for(size_t i = 0; i < popParams.size(); ++i) {
+      genot_out.push_back(Genotypes[i]);
+      popSizes_out.push_back(popParams[i].popSize);
+      index_out.push_back(outNS_i);
+
+      tmp_ndr = getGenotypeDrivers(Genotypes[i], fitnessEffects.drv).size();
+      if(tmp_ndr > max_ndr) max_ndr = tmp_ndr;
+      
+      if(popParams[i].popSize > l_pop_s) {
+	l_pop_s = popParams[i].popSize;
+	ndr_lp = getGenotypeDrivers(Genotypes[i], fitnessEffects.drv).size();
+	largest_clone = i;
+      }
+    }
     
-    genot_out.push_back(Genotypes[0]);
-    popSizes_out.push_back(popParams[0].popSize);
-    index_out.push_back(outNS_i);
+    sampleTotPopSize.push_back(totPopSize); //totPopSize computed above
+    sampleLargestPopSize.push_back(l_pop_s);
+    sampleMaxNDr.push_back(max_ndr); 
+    sampleNDrLargestPop.push_back(ndr_lp);
 
-    sampleTotPopSize.push_back(popParams[0].popSize);
-    sampleLargestPopSize.push_back(popParams[0].popSize);
-    sampleMaxNDr.push_back(getGenotypeDrivers(Genotypes[0],
-					      fitnessEffects.drv).size());
-    sampleNDrLargestPop.push_back(sampleMaxNDr[0]);
-  }
-  // FIXME: why next line and not just genot_out.push_back(Genotypes[i]);
-  // if keepEvery > 0? We do that already.
-  // It is just ugly to get a 0 in that first genotype when keepEvery < 0
-  // uniqueGenotypes.insert(Genotypes[0].to_ullong());
+    if(l_pop_s > 0) {
+      if (largest_clone < 0)
+    	throw std::logic_error("largest_clone < 0");
+      addToPOM(pom, Genotypes[largest_clone], intName, genesInFitness);
+    } else {
+      addToPOM(pom, "_EXTINCTION_");
+    }
+   } else {
+     double l_pop_s = 0.0;
+     int largest_clone = -99;
+     for(size_t i = 0; i < popParams.size(); ++i) {
+       if(popParams[i].popSize > l_pop_s) {
+	 l_pop_s = popParams[i].popSize;
+	 largest_clone = i;
+       }
+     }
+     if(l_pop_s > 0) {
+       if (largest_clone < 0)
+	 throw std::logic_error("largest_clone < 0");
+       addToPOM(pom, Genotypes[largest_clone], intName, genesInFitness);
+     } else {
+       addToPOM(pom, "_EXTINCTION_");
+    }
+   }
+
+
+   if(verbosity > 2) {
+     Rcpp::Rcout << "\n Population right after initialization\n";
+     for(size_t i = 0; i < popParams.size(); ++i) {
+       print_spP(popParams[i]);
+     }
+   }
+  /////////////////////////////////////////////////////////////////
+  ///
+  ///  < /Initialize population. Former initMutant stuff   //////////
+  /// 
+
+
+   // zz5
+  // DP1("print all genotypes in popParams AFTER all init done");
+  // for(size_t m = 0; m != popParams.size(); ++m ) {
+  //   print_Genotype(Genotypes[m]);
+  //   print_spP(popParams[m]);
+  // }
+
+
+     
   timeNextPopSample = currentTime + sampleEvery;
-  numSpecies = 1;
-
-  
-#ifdef DEBUGV
-  Rcpp::Rcout << "\n the initial species\n";
-  print_spP(popParams[0]);
-#endif
+  // numSpecies = popParams.size();
 
 
+  // For McFL error
+  double totPopSize_previous = totPopSize;
+  double DA_previous = log1p(totPopSize_previous/K);
 
 
-  
   while(!simulsDone) {
     // Check how we are doing with time as first thing.
     runningWallTime = difftime(time(NULL), start_time);
@@ -1373,16 +1352,19 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
       forceSample = true;
       simulsDone = true;
     }
+
+   
+
     
     iter++;
-    
+
     if( !(iter % iterInterrupt))
       Rcpp::checkUserInterrupt();
-    
+
     if(verbosity > 1) {
       if(! (iter % iterL) ) {
 	Rcpp::Rcout << "\n\n    ... iteration " << iter;
-	Rcpp::Rcout << "\n    ... currentTime " << currentTime <<"\n";
+	Rcpp::Rcout << "\n      ... currentTime " << currentTime <<"\n";
       }
       if(!(numSpecies % speciesL )) {
 	Rcpp::Rcout << "\n\n    ... iteration " << iter;
@@ -1399,43 +1381,52 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 
 #ifdef DEBUGV
     Rcpp::Rcout << " DEBUGV\n";
-    Rcpp::Rcout << "\n ForceSample? " << forceSample 
-	      << "  tSample " << tSample 
+    Rcpp::Rcout << "\n ForceSample? " << forceSample
+	      << "  tSample " << tSample
 	      << "  currentTime " << currentTime;
 #endif
-
-    if(iter == 1) { // handle special case of first iter
-    tmpdouble1 = ti_nextTime_tmax_2_st(popParams[0],
-					 currentTime,
-					 tSample, 
-					 ti_dbl_min, ti_e3);
-      mapTimes_updateP(mapTimes, popParams, 0, tmpdouble1);
-      //popParams[0].Flag = false;
-      popParams[0].timeLastUpdate = currentTime;
+    
+    if(iter == 1) {
+      // DO NOT move this block above (e.g., right after
+      // initializing initPop): this depends on tSample
+      // which depends on timeNextPopSample, which is changed inside
+      // this loop.  You could move the first definition
+      // of timeNextPopSample and tSample before the init
+      // block but what is the point?
+      for(size_t m = 0; m != popParams.size(); ++m ) {
+	// zz5: do I need this pv? See above, similar comment.
+	popParams[m].pv = mapTimes.insert(std::make_pair(-999, m));
+	tmpdouble1 = ti_nextTime_tmax_2_st(popParams[m],
+					   currentTime,
+					   tSample,
+					   ti_dbl_min, ti_e3);
+	mapTimes_updateP(mapTimes, popParams, m, tmpdouble1);
+	popParams[m].timeLastUpdate = currentTime;
+      }
     } else { // any other iter
       if(to_update == 1) {
 	// we did not sample or mutate to a different species in previous period
 	tmpdouble1 = ti_nextTime_tmax_2_st(popParams[u_1],
 					   currentTime,
-					   tSample, 
+					   tSample,
 					   ti_dbl_min, ti_e3);
 	mapTimes_updateP(mapTimes, popParams, u_1, tmpdouble1);
 	popParams[u_1].timeLastUpdate = currentTime;
 
 #ifdef DEBUGV
-	detect_ti_duplicates(mapTimes, tmpdouble1, u_1);  
+	detect_ti_duplicates(mapTimes, tmpdouble1, u_1);
 #endif
-	
+
 #ifdef DEBUGV
-	Rcpp::Rcout << "\n\n     ********* 5.2: call to ti_nextTime, update one ******\n For to_update = \n " 
+	Rcpp::Rcout << "\n\n     ********* 5.2: call to ti_nextTime, update one ******\n For to_update = \n "
 		  << "     tSample  = " << tSample
-	    
-		  << "\n\n**   Species  = " << u_1 
+
+		  << "\n\n**   Species  = " << u_1
 		    << "\n       genotype =  ";
 	print_Genotype(Genotypes[u_1]);
-	Rcpp::Rcout << "\n       popSize = " << popParams[u_1].popSize 
-		  << "\n       currentTime = " << currentTime 
-		  << "\n       popParams[i].nextMutationTime = " 
+	Rcpp::Rcout << "\n       popSize = " << popParams[u_1].popSize
+		  << "\n       currentTime = " << currentTime
+		  << "\n       popParams[i].nextMutationTime = "
 		  << tmpdouble1
 		  << " \n     species R " << popParams[u_1].R
 		  << " \n     species W " << popParams[u_1].W
@@ -1459,20 +1450,20 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 #ifdef DEBUGV
 	detect_ti_duplicates(mapTimes, tmpdouble1, u_1);
 	detect_ti_duplicates(mapTimes, tmpdouble2, u_2);
-#endif	
+#endif
 
-	
+
 
 #ifdef DEBUGV
-	Rcpp::Rcout << "\n\n     ********* 5.2: call to ti_nextTime, update two ******\n " 
+	Rcpp::Rcout << "\n\n     ********* 5.2: call to ti_nextTime, update two ******\n "
 		  << "     tSample  = " << tSample
-	    
-		  << "\n\n**   Species  = " << u_1 
+
+		  << "\n\n**   Species  = " << u_1
 		    << "\n       genotype =  ";
 	print_Genotype(Genotypes[u_1]);
-	Rcpp::Rcout << "\n       popSize = " << popParams[u_1].popSize 
-		  << "\n       currentTime = " << currentTime 
-		  << "\n       popParams[i].nextMutationTime = " 
+	Rcpp::Rcout << "\n       popSize = " << popParams[u_1].popSize
+		  << "\n       currentTime = " << currentTime
+		  << "\n       popParams[i].nextMutationTime = "
 		  << tmpdouble1
 		  << " \n     species R " << popParams[u_1].R
 		  << " \n     species W " << popParams[u_1].W
@@ -1480,12 +1471,12 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 		  << " \n     species birth " << popParams[u_1].birth
 
 
-		  << "\n\n**     Species  = " << u_2 
+		  << "\n\n**     Species  = " << u_2
 		    << "\n       genotype =  ";
 	print_Genotype(Genotypes[u_2]);
-	Rcpp::Rcout << "\n       popSize = " << popParams[u_2].popSize 
-		  << "\n       currentTime = " << currentTime 
-		  << "\n       popParams[i].nextMutationTime = " 
+	Rcpp::Rcout << "\n       popSize = " << popParams[u_2].popSize
+		  << "\n       currentTime = " << currentTime
+		  << "\n       popParams[i].nextMutationTime = "
 		  << tmpdouble2
 		  << " \n     species R " << popParams[u_2].R
 		  << " \n     species W " << popParams[u_2].W
@@ -1503,21 +1494,21 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 #ifdef DEBUGV
 	  detect_ti_duplicates(mapTimes, tmpdouble1, i);
 #endif
-	  
+
 #ifdef DEBUGV
-	  Rcpp::Rcout << "\n\n     ********* 5.2: call to ti_nextTime, update all ******\n " 
-		    << "     Species  = " << i 
+	  Rcpp::Rcout << "\n\n     ********* 5.2: call to ti_nextTime, update all ******\n "
+		    << "     Species  = " << i
 		      << "\n       genotype =  ";
 	  print_Genotype(Genotypes[i]);
-	  Rcpp::Rcout << "\n       popSize = " << popParams[i].popSize 
-		    << "\n       currentTime = " << currentTime 
-		      << "\n       popParams[i].nextMutationTime = " 
+	  Rcpp::Rcout << "\n       popSize = " << popParams[i].popSize
+		    << "\n       currentTime = " << currentTime
+		      << "\n       popParams[i].nextMutationTime = "
 		      << tmpdouble1
 		    << " \n     species R " << popParams[i].R
 		    << " \n     species W " << popParams[i].W
 		    << " \n     species death " << popParams[i].death
 		    << " \n     species birth " << popParams[i].birth;
-	  
+
 #endif
 	}
       }
@@ -1527,19 +1518,19 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
       tSample = currentTime;
       // Need this, o.w. would skip a sampling.
       timeNextPopSample = currentTime;
-    } 
+    }
 
-    
-    // ******************** 5.3 and do we sample? *********** 
+
+    // ******************** 5.3 and do we sample? ***********
     // Find minimum to know if we need to sample the whole pop
     // We also obtain the nextMutant
-    getMinNextMutationTime4(nextMutant, minNextMutationTime, 
+    getMinNextMutationTime4(nextMutant, minNextMutationTime,
 			    mapTimes);
-    
+
     if(verbosity >= 2) {
       Rcpp::Rcout << "\n\n  iteration " << iter << "; minNextMutationTime = "
-		<< minNextMutationTime 
-		<< "; timeNextPopSample = " << timeNextPopSample 
+		<< minNextMutationTime
+		<< "; timeNextPopSample = " << timeNextPopSample
 		<< "; popParams.size() = " << popParams.size() << "\n";
     }
 
@@ -1548,9 +1539,9 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
       // ************   5.3   **************
       currentTime = minNextMutationTime;
       // ************   5.4   ***************
-      mutantTimeSinceLastUpdate = currentTime - 
+      mutantTimeSinceLastUpdate = currentTime -
 	popParams[nextMutant].timeLastUpdate;
-      
+
       popParams[nextMutant].popSize = Algo3_st(popParams[nextMutant],
 					       mutantTimeSinceLastUpdate);
 
@@ -1560,27 +1551,27 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 #ifdef DEBUGV
 	//if(verbosity > -2) {
 	// We always warn about this, since interaction with ti==0
-	Rcpp::Rcout << "\n Forced sampling triggered for next loop: \n    " << 
-	  " popParams[nextMutant].popSize = " << 
+	Rcpp::Rcout << "\n Forced sampling triggered for next loop: \n    " <<
+	  " popParams[nextMutant].popSize = " <<
 	  popParams[nextMutant].popSize << " > ratioForce * detectionSize \n";
 	Rcpp::Rcout << " when nextMutant = " << nextMutant <<
 	  " at iteration " << iter << "\n";
 	//}
 #endif
-      }      
+      }
       // Check also for numSpecies, and force sampling if needed
-      // This is very different from the other algos, as we do not yet 
+      // This is very different from the other algos, as we do not yet
       // know total number of different species
       // This is a protection against things going wild. Should
       // not happen in regular usage.
       if(! (numSpecies % speciesFS )) {
       	forceSample = true;
 	speciesFS *= 2;
-#ifdef DEBUGV 
+#ifdef DEBUGV
       	//if(verbosity > -2) // we always warn about this
- 
+
 	Rcpp::Rcout << "\n Forced sampling triggered for next loop "
-		  << " when numSpecies = " << 
+		  << " when numSpecies = " <<
 	  numSpecies << " at iteration " << iter << "\n";
 #endif
       }
@@ -1588,7 +1579,7 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
       if(popParams[nextMutant].numMutablePos != 0) {
 	// this is the usual case. The alternative is the dummy or null mutation
 
-      
+
 	// ************   5.5   ***************
 
 	newMutations.clear();
@@ -1604,9 +1595,9 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 	// getMutatedPos_bitset(mutatedPos, numMutablePosParent, // r,
 	// 		     ran_gen,
 	// 		     mutablePos,
-	// 		     Genotypes[nextMutant], 
+	// 		     Genotypes[nextMutant],
 	// 		     numGenes);
-      
+
 	// ************   5.6   ***************
 	newGenotype = createNewGenotype(Genotypes[nextMutant],
 					newMutations,
@@ -1625,7 +1616,7 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 	// b)
 	// sp = 0;
 	// sp = new_sp(newGenotype, Genotypes);
-	
+
 	// nr_change
 	// new_sp_bitset(sp, newGenotype, Genotypes);
 
@@ -1637,7 +1628,7 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 	    Rcpp::Rcout <<"\n     Creating new species   " << (numSpecies - 1)
 			<< "         from species "  <<   nextMutant;
 	  }
-	  
+
 #ifdef DEBUGW
 	  if( (currentTime - popParams[nextMutant].timeLastUpdate) < 0.0) {
 	    DP2(currentTime); //this is set to minNextMutationTime above
@@ -1661,13 +1652,13 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 	    print_spP(popParams[nextMutant]);
 	    throw std::out_of_range("new species: currentTime - timeLastUpdate[sp] out of range. ***###!!!Serious bug!!!###***");
 	  }
-#endif	  
+#endif
 	  tmpParam.popSize = 1;
 
 	  nr_fitness(tmpParam, popParams[nextMutant],
 		     newGenotype,
 		     fitnessEffects,
-		     typeModel);// , genTime,
+		     typeModel, Genotypes, popParams, currentTime);// , genTime,
 		     // adjust_fitness_B, adjust_fitness_MF);
 
 	  if(tmpParam.birth > 0.0) {
@@ -1677,26 +1668,27 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 	    // if(keepPhylog)
 	    //   addToPhylog(phylog, Genotypes[nextMutant], newGenotype, currentTime,
 	    // 		  intName, genesInFitness);
-	    
+
 	    tmpParam.numMutablePos = numMutablePosParent - 1;
 	    tmpParam.mutation = mutationFromScratch(mu, tmpParam, newGenotype,
-					       fitnessEffects,
-					       mutationPropGrowth, full2mutator,
-						    muEF);
+						    fitnessEffects,
+						    mutationPropGrowth, full2mutator,
+						    muEF, Genotypes, popParams, currentTime,
+						    dummyMutationRate);
 	    // tmpParam.mutation = mutationFromParent(mu, tmpParam, popParams[nextMutant],
 	    // 					   newMutations, mutationPropGrowth,
 	    // 					   newGenotype, full2mutator,
 	    // 					   muEF);
 
-	    
+
 	    //tmpParam.mutation = mu * (numMutablePosParent - 1);
 	    if (tmpParam.mutation > 1 )
 	      Rcpp::Rcout << "WARNING: mutation > 1\n";
 	    if (numMutablePosParent == 1) {
 	      if(verbosity >= 1)
 		Rcpp::Rcout << "Note: mutation = 0; no positions left for mutation\n";
-	      // FIXME:varmutrate: give the value of dummy here.
-	      tmpParam.mutation = dummyMutationRate; // dummy mutation here. Set some mu.
+	      // Now set to dummy in mutationFromScratch itself
+	      // tmpParam.mutation = dummyMutationRate; // dummy mutation here. Set some mu.
 	    }
 	    W_f_st(tmpParam);
 	    R_f_st(tmpParam);
@@ -1708,9 +1700,9 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 #ifdef MIN_RATIO_MUTS_NR
 	    g_tmp1_nr = tmpParam.birth/tmpParam.mutation;
 	    if(g_tmp1_nr < g_min_birth_mut_ratio_nr) g_min_birth_mut_ratio_nr = g_tmp1_nr;
-	  
+
 	    g_tmp1_nr = tmpParam.death/tmpParam.mutation;
-	    if(g_tmp1_nr < g_min_death_mut_ratio_nr) g_min_death_mut_ratio_nr = g_tmp1_nr;	
+	    if(g_tmp1_nr < g_min_death_mut_ratio_nr) g_min_death_mut_ratio_nr = g_tmp1_nr;
 #endif
 
 	    // LOD:
@@ -1728,7 +1720,7 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 	    --numSpecies;
 	    to_update = 1;
 	  }
-	  // #ifdef DEBUGV	
+	  // #ifdef DEBUGV
 	  if(verbosity >= 3) {
 	    Rcpp::Rcout << " \n\n\n Looking at NEW species " << sp << " at creation";
 	    Rcpp::Rcout << "\n New Genotype :";
@@ -1754,7 +1746,7 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 	  // What we do here is step 6 of Algorithm 5, in the "Otherwise",
 	  // in p. 5 of suppl mat. We will update both, and only these
 	  // two.
-	  to_update = 2; 
+	  to_update = 2;
 
 #ifdef DEBUGW
 	  if( (currentTime - popParams[sp].timeLastUpdate) < 0.0) {
@@ -1830,14 +1822,14 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 #endif
 	  // if(verbosity >= 2) {
 #ifdef DEBUGV
-	    Rcpp::Rcout <<"\n     Mutated to existing species " << sp 
+	    Rcpp::Rcout <<"\n     Mutated to existing species " << sp
 			<< " (Genotype = ";
-	    print_Genotype(Genotypes[sp]); 
+	    print_Genotype(Genotypes[sp]);
 	      // << "; sp_id = " << Genotypes[sp].to_ullong()
 	    Rcpp::Rcout << ")"
 			<< "\n from species "  <<   nextMutant
 			<< " (Genotypes = ";
-	    print_Genotype(Genotypes[nextMutant]); 
+	    print_Genotype(Genotypes[nextMutant]);
 	      // << "; sp_id = " << Genotypes[sp].to_ullong()
 	    Rcpp::Rcout	<< ")";
 	    // }
@@ -1848,12 +1840,12 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 	    // in 1. Why? Because Algo2 can return a 0. The species
 	    // "exist" in the sense that it had non-zero pop size when we
 	    // last sampled/updated it.
-	    
+
 	    // What we do here is step 6 of Algorithm 5, in the
 	    // "Otherwise", in p. 5 of suppl mat.
-
-	    if(popParams[sp].popSize > 0.0) { 
-	      popParams[sp].popSize = 1.0 + 
+	    
+	    if(popParams[sp].popSize > 0.0) {
+	      popParams[sp].popSize = 1.0 +
 		Algo2_st(popParams[sp], currentTime, mutationPropGrowth);
 	      if(verbosity >= 2) {
 		Rcpp::Rcout << "\n New popSize = " << popParams[sp].popSize << "\n";
@@ -1876,7 +1868,7 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 	    if(keepPhylog)
 	      addToPhylog(phylog, Genotypes[nextMutant], newGenotype, currentTime,
 			  intName, genesInFitness, popParams[sp].popSize);
-	    
+
 
 	}
 	//   ***************  5.7 ***************
@@ -1896,7 +1888,7 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
     } else { //       *********** We are sampling **********
       to_update = 3; //short_update = false;
       if(verbosity >= 2) {
-	Rcpp::Rcout <<"\n We are SAMPLING";   
+	Rcpp::Rcout <<"\n We are SAMPLING";
 	if(tSample < finalTime) {
 	  Rcpp::Rcout << " at time " << tSample << "\n";
 	} else
@@ -1907,7 +1899,7 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
       if(verbosity >= 3)
 	Rcpp::Rcout << "\n popParams.size() before sampling " << popParams.size() << "\n";
 
-      nr_sample_all_pop_P(sp_to_remove, 
+      nr_sample_all_pop_P(sp_to_remove,
 			  popParams, Genotypes, tSample,
 			  mutationPropGrowth);
       timeNextPopSample += sampleEvery;
@@ -1920,20 +1912,20 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 	remove_zero_sp_nr(sp_to_remove, Genotypes, popParams, mapTimes);
 
       numSpecies = popParams.size();
-      
-      nr_totPopSize_and_fill_out_crude_P(outNS_i, totPopSize, 
+
+      nr_totPopSize_and_fill_out_crude_P(outNS_i, totPopSize,
 					 lastStoredSample,
-					 genot_out, 
+					 genot_out,
 					 //sp_id_out,
 					 popSizes_out, index_out,
-					 time_out, 
+					 time_out,
 					 sampleTotPopSize,sampleLargestPopSize,
 					 sampleMaxNDr, sampleNDrLargestPop,
 					 simulsDone,
 					 reachDetection,
 					 lastMaxDr,
 					 done_at,
-					 Genotypes, popParams, 
+					 Genotypes, popParams,
 					 currentTime,
 					 keepEvery,
 					 detectionSize,
@@ -1958,14 +1950,14 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 					 pom, intName,
 					 genesInFitness); //keepEvery is for thinning
       if(verbosity >= 3) {
-	Rcpp::Rcout << "\n popParams.size() before sampling " << popParams.size() 
+	Rcpp::Rcout << "\n popParams.size() before sampling " << popParams.size()
 		  << "\n totPopSize after sampling " << totPopSize << "\n";
       }
-      
-      // computeMcFarlandError(e1, n_0, tps_0,  
+
+      // computeMcFarlandError(e1, n_0, tps_0,
       // 			    typeModel, totPopSize, K); //, initSize);
-      computeMcFarlandError_new(em1, em1sc, totPopSize_previous, DA_previous, 
-				typeModel, totPopSize, K); 
+      computeMcFarlandError_new(em1, em1sc, totPopSize_previous, DA_previous,
+				typeModel, totPopSize, K);
 
       if(simulsDone)
 	break; //skip last updateRates
@@ -1982,23 +1974,51 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
       // 	updateRatesMcFarland(popParams, adjust_fitness_MF,
       // 			     K, totPopSize);
       // } else if( (typeModel == TypeModel::mcfarlandlog) ) {
-      if( (typeModel == TypeModel::mcfarlandlog) ) {
-	updateRatesMcFarlandLog(popParams, adjust_fitness_MF,
-			     K, totPopSize);
+      if (typeModel == TypeModel::mcfarlandlog && !fitnessEffects.frequencyDependentFitness){
+	
+	updateRatesMcFarlandLog(popParams, adjust_fitness_MF, K, totPopSize);
+
+      } else if(typeModel == TypeModel::mcfarlandlog_d && !fitnessEffects.frequencyDependentFitness ) {
+
+	updateRatesMcFarlandLog_D(popParams, adjust_fitness_MF, K, totPopSize);
+
+      } else if (fitnessEffects.frequencyDependentFitness){
+	
+	if( (typeModel == TypeModel::mcfarlandlog) ) {
+	  
+	  updateRatesFDFMcFarlandLog(popParams, Genotypes, fitnessEffects,
+				     adjust_fitness_MF, K, totPopSize, currentTime);
+	  
+	} else if( (typeModel == TypeModel::mcfarlandlog_d) ) {
+	  
+	  updateRatesFDFMcFarlandLog_D(popParams, Genotypes, fitnessEffects,
+				     adjust_fitness_MF, K, totPopSize, currentTime);
+	  
+	} else if(typeModel == TypeModel::exp){
+	  
+	  updateRatesFDFExp(popParams, Genotypes, fitnessEffects, currentTime);
+	  
+	}else if(typeModel == TypeModel::bozic1){
+	  
+	  updateRatesFDFBozic(popParams, Genotypes, fitnessEffects, currentTime);
+	  
+	} else {
+	  throw std::invalid_argument("this ain't a valid typeModel");
+	}
       }
-      
+
 #ifdef MIN_RATIO_MUTS_NR
       // could go inside sample_all_pop but here we are sure death, etc, current
       // But I catch them when they are created. Is this really needed?
       for(size_t i = 0; i < popParams.size(); i++) {
 	g_tmp1_nr = popParams[i].birth/popParams[i].mutation;
 	if(g_tmp1_nr < g_min_birth_mut_ratio_nr) g_min_birth_mut_ratio_nr = g_tmp1_nr;
-	
+
 	g_tmp1_nr = popParams[i].death/popParams[i].mutation;
 	if(g_tmp1_nr < g_min_death_mut_ratio_nr) g_min_death_mut_ratio_nr = g_tmp1_nr;
       }
 #endif
-      
+
       forceSample = false;
     }
   }
@@ -2010,7 +2030,7 @@ static void nr_innerBNB (const fitnessEffectsAll& fitnessEffects,
 Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 			Rcpp::NumericVector mu_,
 			double death,
-			double initSize,
+			Rcpp::NumericVector initSize_,
 			double sampleEvery,
 			double detectionSize,
 			double finalTime,
@@ -2023,7 +2043,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 			Rcpp::CharacterVector typeFitness_,
 			int maxram,
 			int mutationPropGrowth,
-			Rcpp::IntegerVector initMutant_, 
+			Rcpp::List initMutant_,
 			double maxWallTime,
 			double keepEvery,
 			double K,
@@ -2049,10 +2069,19 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   // double p2,
   // double PDBaseline) {
 
-  
+
   precissionLoss();
   const std::vector<double> mu = Rcpp::as<std::vector<double> >(mu_);
-  const std::vector<int> initMutant = Rcpp::as<std::vector<int> >(initMutant_);
+  const std::vector < std::vector<int> >
+    initMutant =  list_to_vector_of_int_vectors(initMutant_, false);
+  // if(initMutant_.size() != 0 ) {
+  //   initMutant = list_to_vector_of_int_vectors(initMutant_);
+  // } else {
+  //   initMutant.resize(0);
+  // }
+  
+  const std::vector<double> initSize = Rcpp::as<std::vector<double> >(initSize_);
+  
   const TypeModel typeModel = stringToModel(Rcpp::as<std::string>(typeFitness_));
 
   // A simple, vector-indexed way to map from numeric ids in full to
@@ -2076,7 +2105,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   //   // std::seed_seq s1{static_cast<unsigned int>(seed)};
   //   // ran_gen.seed(s1);
   // }
- 
+
   unsigned int rseed = static_cast<unsigned int>(seed);
   if(seed == 0) {
     rseed = std::random_device{}();
@@ -2090,9 +2119,11 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
     if(verbosity >= 1)
       Rcpp::Rcout << "  cPDetect set at " << cPDetect << "\n";
   }
-  
-  if( (K < 1 ) && ( typeModel ==   TypeModel::mcfarlandlog) )
+
+  if( (K < 1 ) && ( (typeModel ==   TypeModel::mcfarlandlog) ||
+		    (typeModel ==   TypeModel::mcfarlandlog) ))
     throw std::range_error("K < 1.");
+  
   fitnessEffectsAll fitnessEffects =  convertFitnessEffects(rFE);
   //Used at least twice
   std::map<int, std::string> intName = mapGenesIntToNames(fitnessEffects);
@@ -2101,13 +2132,15 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   // LOD lod;
   std::map<std::string, std::string> lod;
   POM pom;
-  
+
   // Mutator effects
-  fitnessEffectsAll muEF;
-  if( (full2mutator.size() != 0) ) 
-    muEF = convertFitnessEffects(MMUEF);
-  else
-    muEF = nullFitnessEffects();
+	fitnessEffectsAll muEF;
+  if( (full2mutator.size() != 0) ){
+		muEF = convertFitnessEffects(MMUEF);
+	} else {
+		muEF = nullFitnessEffects();
+		muEF.frequencyDependentFitness = fitnessEffects.frequencyDependentFitness;
+			}
   // Paranoia. We should never end up here.
   if( (full2mutator.size() != 0) && (muEF.genomeSize == 0))
     throw std::logic_error("full2mutator > 0 with mutatorEffects.genomesize 0");
@@ -2116,7 +2149,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   }
 
   // fixation: run until some genotype combinations fixed
-  
+
   double fixation_tolerance = -9;
   int min_successive_fixation = 100;
   double fixation_min_size = 0.0;
@@ -2124,21 +2157,21 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 
   if( fixation_i.size() != 0 ) {
     Rcpp::List fggl = fixation_i["fixation_list"] ;
-    fixation_l = list_to_vector_of_int_vectors(fggl); // FIXME
+    fixation_l = list_to_vector_of_int_vectors(fggl, true); // FIXME
     fixation_tolerance = Rcpp::as<double>(fixation_i["fixation_tolerance"]);
     min_successive_fixation = Rcpp::as<int>(fixation_i["min_successive_fixation"]);
     fixation_min_size = Rcpp::as<double>(fixation_i["fixation_min_size"]);
-  } else {
-    fixation_l.resize(0); // explicit
+  } else { 
+     fixation_l.resize(0); // explicit
   }
- 
-  
+
+
   bool runAgain = true;
   bool reachDetection = false;
   //Output
   std::vector<Genotype> genot_out;
   std::vector<double> popSizes_out;
-  std::vector<int> index_out; 
+  std::vector<int> index_out;
   std::vector<double> time_out; //only one entry per period!
   genot_out.reserve(initSp);
   popSizes_out.reserve(initSp);
@@ -2163,8 +2196,8 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   double runningWallTime = 0;
   bool  hittedWallTime = false;
   bool hittedMaxTries = false;
- 
-  // spParamsP tmpParam; 
+
+  // spParamsP tmpParam;
   // std::vector<spParamsP> popParams(1);
   // const int sp_per_period = 5000;
 
@@ -2184,7 +2217,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   // int ti_e3 = 0;
 
 
-  
+
   // // Beerenwinkel
   // double adjust_fitness_B = -std::numeric_limits<double>::infinity();
   // //McFarland
@@ -2202,7 +2235,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   em1 = 0.0;
   em1sc = 0.0;
 
-  
+
   // // For totPopSize_and_fill and bailing out
   // // should be static vars inside funct,
   // // but they keep value over calls in same R session.
@@ -2210,12 +2243,12 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   // double done_at = -9;
   // // totalPopSize at time t, at t-1 and the max error.
 
-  // 5.1 Initialize 
+  // 5.1 Initialize
 
   int numRuns = 0;
   int numRecoverExcept = 0;
   bool forceRerun = false;
-  
+
   double currentTime = 0;
   int iter = 0;
 
@@ -2263,7 +2296,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 	       mu,
 	       death,
 	       keepEvery,
-	       sampleEvery,		     
+	       sampleEvery,
 	       initMutant,
 	       start_time,
 	       maxWallTime,
@@ -2282,7 +2315,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 	       ratioForce,
 	       currentTime,
 	       speciesFS,
-	       outNS_i, 
+	       outNS_i,
 	       iter,
 	       genot_out,
 	       popSizes_out,
@@ -2319,7 +2352,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
       accum_ti_dbl_min += ti_dbl_min;
       accum_ti_e3 += ti_e3;
     } catch (rerunExcept &e) {
-      Rcpp::Rcout << "\n Recoverable exception " << e.what() 
+      Rcpp::Rcout << "\n Recoverable exception " << e.what()
 		  << ". Rerunning.";
       forceRerun = true;
       ++numRecoverExcept;
@@ -2384,16 +2417,16 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 #ifdef DEBUGV
       Rcpp::Rcout << "\n reachDetection = " << reachDetection;
       Rcpp::Rcout << "\n forceRerun =  " << forceRerun  << "\n";
-      
+
 #endif
-    
+
   } // runAgain loop
-    
-  
+
+
   std::vector<std::vector<int> > genot_out_v = genot_to_vectorg(genot_out);
   std::vector<std::vector<int> > uniqueGenotypes_vector_nr  =
     uniqueGenot_vector(genot_out_v);
-  IntegerMatrix returnGenotypes = 
+  IntegerMatrix returnGenotypes =
     nr_create_returnGenotypes(fitnessEffects.genomeSize,
   			      uniqueGenotypes_vector_nr);
   Rcpp::NumericMatrix outNS = create_outNS(uniqueGenotypes_vector_nr,
@@ -2401,7 +2434,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   					   popSizes_out,
   					   index_out, time_out,
   					   outNS_i, maxram);
-  
+
   int maxNumDrivers = 0;
   int totalPresentDrivers = 0;
   std::vector<int> countByDriver(fitnessEffects.drv.size(), 0);
@@ -2410,7 +2443,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 	       countByDriver, presentDrivers,
 	       returnGenotypes, fitnessEffects.drv);
 
- 
+
   std::vector<std::string> genotypesAsStrings =
     genotypesToNameString(uniqueGenotypes_vector_nr, genesInFitness, intName);
   std::string driversAsString =
@@ -2432,7 +2465,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
   //   Rcpp::Rcout << std::endl;
   // }
 
-  
+
   std::vector<double> sampleLargestPopProp(outNS_i + 1);
   if((outNS_i + 1) != static_cast<int>(sampleLargestPopSize.size()))
     throw std::length_error("outNS_i + 1 != sampleLargestPopSize.size");
@@ -2451,10 +2484,10 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
     lod_child.push_back(l.first);
     lod_parent.push_back(l.second);
   }
-  
+
   return
     List::create(Named("pops.by.time") = outNS,
-		 Named("NumClones") = uniqueGenotypes_vector_nr.size(), 
+		 Named("NumClones") = uniqueGenotypes_vector_nr.size(),
 		 Named("TotalPopSize") = totPopSize,
 		 Named("Genotypes") = returnGenotypes,
 		 Named("GenotypesWDistinctOrderEff") = Rcpp::wrap(uniqueGenotypes_vector_nr),
@@ -2466,7 +2499,7 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 		 Named("PropLargestPopLast") = sampleLargestPopProp[outNS_i],
 		 Named("FinalTime") = currentTime,
 		 Named("NumIter") = iter,
-		 Named("HittedWallTime") = hittedWallTime, 
+		 Named("HittedWallTime") = hittedWallTime,
 		 Named("HittedMaxTries") = hittedMaxTries,
 		 Named("TotalPresentDrivers") = totalPresentDrivers,
 		 Named("CountByDriver") = countByDriver,
@@ -2475,14 +2508,14 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 		 Named("other") = List::create(Named("attemptsUsed") = numRuns,
 					       Named("errorMF") =
 					       returnMFE_new(em1sc, typeModel),
-					       Named("errorMF_size") = 
+					       Named("errorMF_size") =
 					       returnMFE_new(em1, typeModel), // Used to be e1, not log
 					       // Named("errorMF_n_0") = n_0,
 #ifdef MIN_RATIO_MUTS_NR
 					       Named("minDMratio") =
 					       g_min_death_mut_ratio_nr,
 					       Named("minBMratio") =
-					       g_min_birth_mut_ratio_nr,      
+					       g_min_birth_mut_ratio_nr,
 #else
 					       Named("minDMratio") = -99,
 					       Named("minBMratio") = -99,
@@ -2526,3 +2559,13 @@ Rcpp::List nr_BNB_Algo5(Rcpp::List rFE,
 // to the three piece structure. This seems much more expensive than the
 // overloaded == and the usage of the overloaded < (this is only used at
 // the end, when producing the output objects)
+
+
+
+// When you need to alter things that affect a genotype periodically, like
+// the FDF, or the McFarland rates, etc, you will want to do it here:
+// when we call updateRatesMcFarlandLog and similar, e.g.,
+// In BNB_nr.cpp, in nr_innerBNB function
+// when we are sampling.
+// Probably also where nr_fitness is called
+// And generally, in general, were we pass currentTime

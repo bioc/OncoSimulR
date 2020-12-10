@@ -16,18 +16,19 @@
 \description{
   Simulate tumor progression including possible restrictions in the
   order of driver mutations. Optionally add passenger
-  mutations. Simulation is done using the BNB algorithm of Mather et
+  mutations. When used in frequency dependent fitness situation, only fitness
+  effects are allowed. Simulation is done using the BNB algorithm of Mather et
   al., 2012.
 }
 \usage{
  oncoSimulIndiv(fp, model = "Exp", 
                 numPassengers = 0, mu = 1e-6, muEF = NULL,
                 detectionSize = 1e8, detectionDrivers = 4,
-                detectionProb = NA,                  
+                detectionProb = NA,
                 sampleEvery = ifelse(model \%in\% c("Bozic", "Exp"), 1,
                              0.025),
                 initSize = 500, s = 0.1, sh = -1,
-                K = initSize/(exp(1) - 1), keepEvery = sampleEvery,
+                K = sum(initSize)/(exp(1) - 1), keepEvery = sampleEvery,
                 minDetectDrvCloneSz = "auto",
                 extraTime = 0,
                 finalTime = 0.25 * 25 * 365, onlyCancer = TRUE,
@@ -47,11 +48,11 @@
 oncoSimulPop(Nindiv, fp, model = "Exp", numPassengers = 0, mu = 1e-6,
                 muEF = NULL,
                 detectionSize = 1e8, detectionDrivers = 4,
-                detectionProb = NA,                  
+                detectionProb = NA,
                 sampleEvery = ifelse(model \%in\% c("Bozic", "Exp"), 1,
                              0.025),
                 initSize = 500, s = 0.1, sh = -1,
-                K = initSize/(exp(1) - 1), keepEvery = sampleEvery,
+                K = sum(initSize)/(exp(1) - 1), keepEvery = sampleEvery,
                 minDetectDrvCloneSz = "auto",
                 extraTime = 0,
                 finalTime = 0.25 * 25 * 365, onlyCancer = TRUE,
@@ -88,7 +89,7 @@ oncoSimulSample(Nindiv,
                                 } else {
                                     nd <- (2 : round(0.75 * max(fp)))
                                 }
-                                if (length(nd) == 1) 
+                                if (length(nd) == 1)
                                     nd <- c(nd, nd)
                                 sample(nd, Nindiv,
                                        replace = TRUE)
@@ -99,7 +100,7 @@ oncoSimulSample(Nindiv,
                 initSize = 500,
                 s = 0.1,
                 sh = -1,
-                K = initSize/(exp(1) - 1),
+                K = sum(initSize)/(exp(1) - 1),
                 minDetectDrvCloneSz = "auto",
                 extraTime = 0,
                 finalTime = 0.25 * 25 * 365,
@@ -122,32 +123,40 @@ oncoSimulSample(Nindiv,
 }
 
 \arguments{
-  
+
   \item{Nindiv}{Number of individuals or number of different
     trajectories to simulate.}
 
   \item{fp}{
-    
+
     Either a poset that specifies the order restrictions (see
     \code{\link{poset}} if you want to use the specification as in
     v.1. Otherwise, a fitnessEffects object (see
-    \code{\link{allFitnessEffects}}).
+    \code{\link{allFitnessEffects}}). You must always use a fitnessEffects object
+    when you are in a frequency dependent fitness simulation; of course in this case 
+    fp$frequencyDependentFitness must be TRUE.
 
     Other arguments below (s, sh, numPassengers) make sense only if you
     use a poset, as they are included in the fitnessEffects object.
 
 }
 
-\item{model}{
-  One of "Bozic", "Exp", "McFarlandLog" (the last one can be abbreviated
-  to "McFL"). The default is "Exp".
+\item{model}{ One of "Bozic", "Exp", "McFarlandLog", "McFarlandLogD"
+  (the last two can be abbreviated to "McFL" and "McFLD",
+  respectively). The default is "Exp". (See vignette for the difference
+  between "McFL" and "McFLD": in the former, death rate = \eqn{\log(1 +
+  N/K)} where \eqn{K} is the initial equilibrium population size; when
+  using "McFLD", death rate = \eqn{\max(1, \log(1 + N/K))}, so that death
+  rate never goes below 1.)
+  
 
 }
 
 \item{numPassengers}{
 
   This has no effect if you use the \code{\link{allFitnessEffects}}
-  specification.
+  specification. This happens always when you are in a simulation that use
+  frequency dependent fitness.
   
   If you use the specification of v.1., the number of passenger
   genes. Note that using v.1 the total number of genes (drivers plus
@@ -169,7 +178,7 @@ oncoSimulSample(Nindiv,
   the genes in the fitness specification. Passing a vector is only
   available when using fitnessEffects objects for fitness specification.
 
-  See also \code{mutationPropGrowth}.
+  See also \code{mutationPropGrowth}. 
 
 }
 
@@ -190,6 +199,9 @@ oncoSimulSample(Nindiv,
   
   If you use mutator effects you must also use fitnessEffects in
   \code{fp}.
+
+  %% You are not allowed to use mutator effects object in a frequency depedent
+  %% fitness simulation.
 
 }
 
@@ -214,7 +226,8 @@ total number of drivers. If there are no drivers (because you are using
 a fitnessEffects object without a \code{drvNames}, either because you
 specified it explicitly or because all of the genes are in the
 noIntGenes component) the simulations should not stop based on the
-number of drivers (and, thus, the default is set to 9e6).
+number of drivers (and, thus, the default is set to 9e6). This is the case
+when you run the simulation with frequency dependent fitness.
 
 If set to NA, \code{detectionDrivers} plays no role in stopping the
 simulations.
@@ -230,7 +243,8 @@ simulations.
 
     \item{PDBaseline:}{ Baseline size subtracted to total population size
     to compute the probability of detection. If not given explicitly,
-    the default is \code{1.2 * initSize}.
+    the default is \code{1.2 * initSize} (or \code{1.2 * sum(initSize)}
+    when multiple \code{initMutant}s).
     }
 
     \item{p2:}{ The probability of detection at population size
@@ -291,7 +305,13 @@ This option can not be used with v.1 objects.
 
 }
 \item{initSize}{
-  Initial population size.
+  Initial population size. If you are passing more than one
+  \code{initMutant}, the initial population sizes of each
+  clone/species/genotype, given in the same order as in the
+  \code{initMutant} vector. \code{initMutant} thus allows to start the
+  simulation from arbitrary population compositions. Combined with
+  \code{mu} it allows for multispecies simulations (see the vignette for
+  examples).
 
 }
 
@@ -353,6 +373,9 @@ of \code{sampleEvery} that is larger than or equal to \code{keepEvery}.
   then immediately go extinct. This can be relevant in secenarios such
   as the McFarland model.
 
+  If \code{initSize} is larger than 1 (you are passing multiple
+  initMutants), the sum is used.
+
   See also \code{extraTime}.
 }
 
@@ -401,12 +424,17 @@ of \code{sampleEvery} that is larger than or equal to \code{keepEvery}.
 
 
 
-\item{mutationPropGrowth}{
-  If TRUE, make mutation rate proportional to growth rate, so clones
-  that grow faster also mutate faster. Thus, $mutation_rate = mu *
-  birth_rate$. This is a simple way of approximating that mutation happens
-  at cell division (it is not strictly making mutation happen at cell division,
-  since mutation is not strictly coupled with division).
+\item{mutationPropGrowth}{ If TRUE, make mutation rate proportional to growth
+  rate, so clones that grow faster also mutate faster (laso have a larger
+  mutation rate): $mutation_rate = mu
+  * birth_rate$. With BNB mutation is actually "mutate after division": p.\ 1232 of Mather
+  et al., 2012 explains:
+  "(...) mutation is simply defined as the creation and subsequent departure of a single individual from the class". Thus,
+  if we want to have individuals of clones/genotypes/populations that divide faster to also produce more
+  mutants per unit time (per individual) we have to set \code{mutationPropGrowth = TRUE}.
+  %% This is a simple way of approximating that mutation happens
+  %% at cell division (it is not strictly making mutation happen at cell division,
+  %% since mutation is not strictly coupled with division).
   Of course, this only makes sense in models where birth rate changes.
 }
 
@@ -417,7 +445,11 @@ of \code{sampleEvery} that is larger than or equal to \code{keepEvery}.
   mutant, if any. This is the same format as for
   \code{\link{evalGenotype}}. The default (if you pass nothing) is to
   start the simulation from the wildtype genotype with nothing mutated.
-  For v.1 we no longer accept initMutant: it will be ignored. }
+  For v.1 we no longer accept initMutant: it will be ignored.
+
+  (\code{evalGenotype} also accepts the genotype as a numeric vector;
+  \code{initMutant} must be a character string.)
+}
 
 %% \item{initMutant}{For v.2, a string with the mutations of the initial
 %%   mutant, if any. This is the same format as for
@@ -908,17 +940,17 @@ p2 <- oncoSimulSample(4, p701)
 #### A model similar to the one in McFarland. We use 2070 genes.
 
 set.seed(456)
-nd <- 70  
-np <- 2000 
-s <- 0.1  
-sp <- 1e-3 
+nd <- 70
+np <- 2000
+s <- 0.1
+sp <- 1e-3
 spp <- -sp/(1 + sp)
 mcf1 <- allFitnessEffects(noIntGenes = c(rep(s, nd), rep(spp, np)),
                           drv = seq.int(nd))
 mcf1s <-  oncoSimulIndiv(mcf1,
-                         model = "McFL", 
+                         model = "McFL",
                          mu = 1e-7,
-                         detectionSize = 1e8, 
+                         detectionSize = 1e8,
                          detectionDrivers = 100,
                          sampleEvery = 0.02,
                          keepEvery = 2,
@@ -948,7 +980,7 @@ oiI1   ## note the order and separation by "_"
 oiP1 <- oncoSimulPop(2, oi,
                      keepEvery = 10,
                      mc.cores = 2)
-summary(oiP1) 
+summary(oiP1)
 
 
 ## Even if order exists, this cannot reflect it;
@@ -961,7 +993,7 @@ oiS1 <- oncoSimulSample(2, oi)
 
 ## The output contains only the summary of the runs AND
 ## the sample:
-oiS1 
+oiS1
 
 ## And their sizes do differ
 object.size(oiS1)
@@ -974,9 +1006,9 @@ object.size(oiP1)
 ###       and names come from Gerstung et al.)
 
 
-pancr <- allFitnessEffects(data.frame(parent = c("Root", rep("KRAS", 4), "SMAD4", "CDNK2A", 
+pancr <- allFitnessEffects(data.frame(parent = c("Root", rep("KRAS", 4), "SMAD4", "CDNK2A",
                                           "TP53", "TP53", "MLL3"),
-                                      child = c("KRAS","SMAD4", "CDNK2A", 
+                                      child = c("KRAS","SMAD4", "CDNK2A",
                                           "TP53", "MLL3",
                                           rep("PXDN", 3), rep("TGFBR2", 2)),
                                       s = 0.05,
@@ -994,9 +1026,10 @@ pancr1$GenotypesLabels
 
 
 ## Pop and Sample
-pancrPop <- oncoSimulPop(4, pancr,
-                        keepEvery = 10,
-                       mc.cores = 2)
+pancrPop <- oncoSimulPop(4,
+                         pancr,
+                         keepEvery = 10,
+                         mc.cores = 2)
 summary(pancrPop)
 pancrSPop <- samplePop(pancrPop)
 pancrSPop
@@ -1005,21 +1038,120 @@ pancrSamp <- oncoSimulSample(2, pancr)
 pancrSamp
 
 
-
 ## Using gene-specific mutation rates
 muv <- c("U" = 1e-3, "z" = 1e-7, "e" = 1e-6, "m" = 1e-5, "D" = 1e-4)
 ni <- rep(0.01, 5)
 names(ni) <- names(muv)
 femuv <- allFitnessEffects(noIntGenes = ni)
 oncoSimulIndiv(femuv, mu = muv)
-                      
+
+
+#########Frequency dependent fitness examples
+
+## An example with cooperation. Presence of WT favours all clones
+## and all clones have a positive effect on themselves
+genofit <- data.frame(A = c(0, 1, 0, 1),
+                      B = c(0, 0, 1, 1),
+                      Fitness = c("3 + 5*f_",
+                                  "3 + 5*(f_ + f_1)",
+                                  "3 + 5*(f_ + f_2)",
+                                  "5 + 6*(f_ + f_1_2)"))
+
+afe <- allFitnessEffects(genotFitness = genofit,
+                         frequencyDependentFitness = TRUE, 
+                         frequencyType = "rel")
+
+osi <- oncoSimulIndiv(afe,
+                      model = "McFL",
+                      onlyCancer = FALSE,
+                      finalTime = 5000,
+                      mu = 1e-6,
+                      initSize = 5000,
+                      keepPhylog = FALSE,
+                      seed = NULL,
+                      errorHitMaxTries = FALSE,
+                      errorHitWallTime = FALSE)
+osi
+
+plot(osi, show = "genotypes", type = "line")
+
+\dontrun{
+## This can be slow
+osp <- oncoSimulPop(5,
+                    afe,
+                    model = "McFL",
+                    initSize = 5000,
+                    mu = 1e-6,
+                    keepEvery = 5,
+                    mc.cores = 2,
+                    finalTime = 5000)
+
+sp <- samplePop(osp)
+
+sp
+}
+
+## A little bit more complex example situation. WT favours clones A and B. A and
+## B compete with each other. Presence of A and B favours clone A, B.
+
+genofit <- data.frame(A = c(0, 1, 0, 1),
+                      B = c(0, 0, 1, 1),
+                      Fitness = c("3 + 5*f_",
+                                  "3 + 5*(f_ + f_1 - f_2)",
+                                  "3 + 5*(f_ + f_2 - f_1)",
+                                  "5 + 6*(f_1 + f_2 + f_1_2)"))
+
+afe <- allFitnessEffects(genotFitness = genofit,
+                         frequencyDependentFitness = TRUE, 
+                         frequencyType = "rel")
+
+osi <- oncoSimulIndiv(afe,
+                      model = "McFL",
+                      onlyCancer = FALSE,
+                      finalTime = 5000,
+                      mu = 1e-6,
+                      initSize = 5000,
+                      keepPhylog = FALSE,
+                      seed = NULL,
+                      errorHitMaxTries = FALSE,
+                      errorHitWallTime = FALSE)
+osi
+
+plot(osi, show = "genotypes", type = "line")
+
+\dontrun{
+## This can be slow
+osp <- oncoSimulPop(5,
+                    afe,
+                    model = "McFL",
+                    initSize = 5000,
+                    onlyCancer = FALSE,
+                    mu = 1e-6,
+                    keepEvery = 5,
+                    mc.cores = 2)
+
+summary(osp)
+
+sp <- samplePop(osp)
+
+sp
+
+
+oss <- oncoSimulSample(5,
+                       afe,
+                       model = "McFL",
+                       initSize = 5000,
+                       mu = 1e-6,
+                       finalTime = 5000,
+                       verbosity = 0)
+
+oss
+}
+
 
 ## Reinitialize the RNG
-set.seed(NULL)                      
+set.seed(NULL)
 
 }
 \keyword{misc}
 \keyword{iteration}
-
-
-

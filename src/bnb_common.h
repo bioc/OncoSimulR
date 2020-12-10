@@ -1,4 +1,4 @@
-//     Copyright 2013, 2014, 2015 Ramon Diaz-Uriarte
+//     Copyright 2013-2021 Ramon Diaz-Uriarte
 
 //     This program is free software: you can redistribute it and/or modify
 //     it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 #include<Rcpp.h>
 #include "common_classes.h"
 #include "debug_common.h"
-// #include "new_restrict.h" // for the TypeModel enum
+#include "new_restrict.h" // for the TypeModel enum
 
 // // Simple custom exception for exceptions that lead to re-runs.
 // class rerunExcept: public std::runtime_error {
@@ -37,7 +37,7 @@
 //   double death;
 //   double W;
 //   double R;
-//   double mutation; 
+//   double mutation;
 //   double timeLastUpdate;
 //   std::multimap<double, int>::iterator pv;
 //   double absfitness; //convenient for Beerenwinkel
@@ -50,8 +50,8 @@ inline void W_f_st(spParamsP& spP){
 }
 
 inline void R_f_st(spParamsP& spP) {
-  spP.R = sqrt( pow( spP.birth - spP.death, 2) + 
-		( 2.0 * (spP.birth + spP.death) + 
+  spP.R = sqrt( pow( spP.birth - spP.death, 2) +
+		( 2.0 * (spP.birth + spP.death) +
 		  spP.mutation) * spP.mutation );
 }
 
@@ -62,7 +62,7 @@ inline double pE_f_st(double& pM, const spParamsP& spP){
     DP2(spP.death);  DP2(spP.birth); DP2(pM); DP2(spP.W);
     DP2(spP.mutation);
     std::string error_message = R"(pE.f: pE not finite.
-      This is expected to happen when mutationPropGrowth = TRUE 
+      This is expected to happen when mutationPropGrowth = TRUE
       and you have have an initMutant with death >> birth,
       as that inevitably leads to net birth rate of 0
       and mutation rate of 0)";
@@ -73,7 +73,7 @@ inline double pE_f_st(double& pM, const spParamsP& spP){
 
 inline double pB_f_st(const double& pE,
 			     const spParamsP& spP) {
-  return (spP.birth * pE)/spP.death; 
+  return (spP.birth * pE)/spP.death;
 }
 
 void mapTimes_updateP(std::multimap<double, int>& mapTimes,
@@ -93,6 +93,9 @@ void fill_SStats(Rcpp::NumericMatrix& perSampleStats,
 			       const std::vector<int>& sampleMaxNDr,
 		 const std::vector<int>& sampleNDrLargestPop);
 
+void print_mapTimes(std::multimap<double, int>& mapTimes);
+  
+void print_initMutant(const std::vector < std::vector<int> >& initMutant);
 
 void print_spP(const spParamsP& spP);
 
@@ -166,6 +169,37 @@ void updateRatesMcFarlandLog(std::vector<spParamsP>& popParams,
 				    const double& K,
 			     const double& totPopSize);
 
+void updateRatesFDFMcFarlandLog(std::vector<spParamsP>& popParams,
+  const std::vector<Genotype>& Genotypes,
+  const fitnessEffectsAll& fitnessEffects,
+  double& adjust_fitness_MF,
+  const double& K,
+  const double& totPopSize,
+  const double& currentTime);
+
+void updateRatesMcFarlandLog_D(std::vector<spParamsP>& popParams,
+				    double& adjust_fitness_MF,
+				    const double& K,
+			     const double& totPopSize);
+
+void updateRatesFDFMcFarlandLog_D(std::vector<spParamsP>& popParams,
+  const std::vector<Genotype>& Genotypes,
+  const fitnessEffectsAll& fitnessEffects,
+  double& adjust_fitness_MF,
+  const double& K,
+  const double& totPopSize,
+  const double& currentTime);
+
+
+void updateRatesFDFExp(std::vector<spParamsP>& popParams,
+  const std::vector<Genotype>& Genotypes,
+  const fitnessEffectsAll& fitnessEffects,
+  const double& currentTime);
+
+void updateRatesFDFBozic(std::vector<spParamsP>& popParams,
+  const std::vector<Genotype>& Genotypes,
+  const fitnessEffectsAll& fitnessEffects,
+  const double& currentTime);
 
 void updateRatesMcFarland0(std::vector<spParamsP>& popParams,
 				  double& adjust_fitness_MF,
@@ -188,4 +222,3 @@ void detect_ti_duplicates(const std::multimap<double, int>& m,
 			  const int spcies);
 
 #endif
-

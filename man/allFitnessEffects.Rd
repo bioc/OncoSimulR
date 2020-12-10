@@ -16,6 +16,11 @@
   mapping of genes to modules, return the complete specification of how
   mutations affect the mutation rate.
   
+  This function can be used also to produce the fitness specification
+  needed to run simulations in a frequency dependent fitness way. In that
+  situation we presume that the effects must be considered as fitness effects
+  and never as mutator effects (see \code{details} for more info).
+
   The output of these functions is not intended for user consumption,
   but as a way of preparing data to be sent to the C++ code.  }
 
@@ -24,7 +29,8 @@
 
 allFitnessEffects(rT = NULL, epistasis = NULL, orderEffects = NULL,
   noIntGenes = NULL, geneToModule = NULL, drvNames = NULL,
-  genotFitness = NULL,  keepInput = TRUE)
+  genotFitness = NULL,  keepInput = TRUE, frequencyDependentFitness =
+  FALSE, frequencyType = NA)
 
 allMutatorEffects(epistasis = NULL, noIntGenes = NULL,
                    geneToModule = NULL,
@@ -69,18 +75,23 @@ allMutatorEffects(epistasis = NULL, noIntGenes = NULL,
       three would have the same effects if a node that connects to root
       only connects to root).}
   }
+  This paramenter is not used if  \code{frequencyDependentFitness} is TRUE.
   }
   \item{epistasis}{
     A named numeric vector. The names identify the relationship, and the
     numeric value is the fitness (or mutator) effect. For the names, each of the
     genes or modules involved is separated by a ":". A negative sign
     denotes the absence of that term.
+
+    This paramenter is not used if  \code{frequencyDependentFitness} is TRUE.
   }
   \item{orderEffects}{
     A named numeric vector, as for \code{epistasis}. A ">" separates the
   names of the genes of modules of a relationship, so that "U > Z" means
   that the relationship is satisfied when mutation U has happened before
   mutation Z.
+
+  This paramenter is not used if  \code{frequencyDependentFitness} is TRUE.
 }
 \item{noIntGenes}{
   A numeric vector (optionally named) with the fitness coefficients (or
@@ -91,6 +102,8 @@ allMutatorEffects(epistasis = NULL, noIntGenes = NULL,
 
   Of course, avoid using potentially confusing characters in the
   names. In particular, "," and ">" are not allowed as gene names.
+
+  This paramenter is not used if  \code{frequencyDependentFitness} is TRUE.
 }
 
 \item{geneToModule}{
@@ -103,8 +116,9 @@ allMutatorEffects(epistasis = NULL, noIntGenes = NULL,
   argument, and you used a restriction table, the \code{geneToModule} 
   must necessarily contain, in the first position, "Root" (since the
   restriction table contains a node named "Root"). See examples below.
-}
     
+  This paramenter is not used if  \code{frequencyDependentFitness} is TRUE.
+}
 
 \item{drvNames}{The names of genes that are considered drivers. This is
   only used for: a) deciding when to stop the simulations, in case you
@@ -134,16 +148,47 @@ allMutatorEffects(epistasis = NULL, noIntGenes = NULL,
     \code{\link{rfitness}}. If the matrix has all columns named, those
     will be used for the names of the genes. Of course, except for
     column or row names, all entries in this matrix or data frame must
-    be numeric.
+    be numeric, except when \code{frequencyDependentFitness} is TRUE.
+    In this case, last column must be character and contains fitness
+    equations.
     
     \item As a two column data frame. The second column is fitness, and
     the first column are genotypes, given as a character vector. For
-    instance, a row "A, B" would mean the genotype with both A and B mutated.
+    instance, a row "A, B" would mean the genotype with both A and B
+    mutated. If \code{frequencyDependentFitness} is TRUE both columns 
+    must be character vectors.
   }
-  In all cases, fitness must be \code{>= 0}. If any possible genotype is
-  missing, its fitness is assumed to be 0, except for WT (if WT is
-    missing, its fitness is assumed to be 1 ---see examples).
-}
+  
+  When \code{frequencyDependentFitness = FALSE}, fitness must be
+  \code{>= 0}. If any possible genotype is missing, its fitness is
+  assumed to be 0, except for WT (if WT is missing, its fitness is
+  assumed to be 1 ---see examples); this also applies to
+  frequency-dependent fitness.
+
+  In contrast, if \code{frequencyDependentFitness = TRUE}, the Fitness
+  column must contain the fitness specification equations, like
+  characters, using as variables the frequencies (absolute or relative)
+  of the all possible genotypes. We use "f" to denote relative
+  frecuencies and "n" for absolute. Letter "N" (UPPER CASE) is reserved
+  to denote total population size, thus f=n/N for each possible
+  genotype.  Relative frequency variables must be f_ for wild type, f_1
+  or f_A if first gene is mutated, f_2 or f_B if is the case for the
+  second one, f_1_2 or f_A_B, if both the first and second genes are
+  mutated, and so on. For anything beyond the trivially simple, using
+  letters (not numbers) is strongly recommended. Note also that you need
+  not specify the fitness of every genotype (those missing are assumed
+  to have a fitness of 0), nor do you need to pass the WT genotype. See
+  the vignette for many examples.
+
+  If we want to use absolute numbers (absolute frequencies), just
+  subtitute "f" for "n". The choice between relative or absolute
+  frequencies may be specified also in \code{frequencyType} or, if using
+  the default (auto) it can be automatically inferred.
+
+  Mathematical operations and symbols allowed are described in the
+  documentation of C++'s library ExprTk that is used to parse and
+  evaluate the fitness equations (see references for more information).
+  }
 
 
 \item{keepInput}{
@@ -152,14 +197,39 @@ allMutatorEffects(epistasis = NULL, noIntGenes = NULL,
   decode, say, the restriction table from the data frame than from the
   internal representation. But if you want, you can set it to FALSE and
   the object will be a little bit smaller.}
+
+  \item{frequencyDependentFitness}{
+  If FALSE, the default value, all downstream work will be realised in a
+  way not related to frequency depedent fitness situations. That implies
+  that fitness specifications are fixed, except death rate in case of
+  McFarland model (see \code{\link{oncoSimulIndiv}} for more details). If
+  TRUE, you are in a frequency dependent fitness situation, where fitness
+  specification ecuations must be passed as characters at 
+  \code{genotFitness}.
+}
+
+  %% \item{frequencyType}{frequencyType is a character that specify wether 
+  %%   we are using absolute or relatives frequecies and can take tree values
+  %%   depending on \code{frequencyDependentFitness}. When FALSE is 
+  %%   "unemployed" and for TRUE we can use "abs", for absolute frequencies,
+  %%   or "rel", for relative ones. Remember that you must to use "f" for
+  %% relative frequency and "n" for absolute in \code{genoFitness}.
+  \item{frequencyType}{frequencyType is a character that specify whether
+  we are using absolute or relatives frequecies and can take tree values
+  depending on \code{frequencyDependentFitness}. Use "abs", for absolute
+  frequencies, or "rel", for relative ones. Remember that you must to
+  use "f" for relative frequency and "n" for absolute in
+  \code{genoFitness}. Set to NA for non-frequency-dependent fitness. }
+
 }
 
 \details{
   \code{allFitnessEffects} is used for extremely flexible specification of fitness
   and mutator effects, including posets, XOR relationships, synthetic mortality and
   synthetic viability, arbitrary forms of epistatis, arbitrary forms of
-  order effects, etc. Please, see the vignette for detailed and
-  commented examples.
+  order effects, etc. \code{allFitnessEffects} produce the output necessary
+  to pass to the C++ code the fitness/mutator specifications to run simulations.
+  Please, see the vignette for detailed and commented examples.
 
   \code{allMutatorEffects} provide the same flexibility, but without
   order and posets (this might be included in the future, but I have
@@ -172,22 +242,27 @@ allMutatorEffects(epistasis = NULL, noIntGenes = NULL,
   \code{allFitnessEffects} object. If you want to have genes that have
   no direct effect on fitness, but that affect mutation rate, you MUST
   specify them in the call to \code{allFitnessEffects}, for instance as
-  \code{noIntGenes} with an effect of 0.
-
+  \code{noIntGenes} with an effect of 0. When you run the simulations in
+  \code{frequencyDependentFitness} = TRUE only fitness effects are
+  allowed, and must be codified in \code{genotFitness}.
 
   If you use \code{genotFitness} then you cannot pass modules,
   noIntgenes, epistasis, or rT. This makes sense, because using
   \code{genotFitness} is saying
   "this is the mapping of genotypes to fitness. Period", so we should
-  not allow further modifications from other terms.
+  not allow further modifications from other terms. This is always the
+  case when \code{frequencyDependentFitness} = TRUE.
 
   If you use \code{genotFitness} you need to be careful when you use
   Bozic's model (as you get a death rate of 0).
 
 
   If you use \code{genotFitness} note that we force the WT (wildtype) to
-  always be 1 so fitnesses are rescaled. 
-
+  always be 1 so fitnesses are rescaled in case of 
+  \code{frequencyDependentFitness = FALSE}. In contrast, when 
+  \code{frequencyDependentFitness = TRUE} you are free to 
+  determine the fitness as a function of the frequencies of the genotypes
+  (see \code{genotFitness} and the vignette).
 
 }
 
@@ -226,17 +301,57 @@ allMutatorEffects(epistasis = NULL, noIntGenes = NULL,
 
   \item{noIntGenes}{If \code{keepInput} is TRUE, the original 
     noIntGenes.}
+
+  \item{fitnessLandscape}{A data.frame that contains number of genes + 1 columns,
+  where the first columns are the genes (1 if mutated and 0 if not) and the last
+  one contains the fitnesses.
+  }
+
+  \item{fitnessLandscape_df}{A data.frame with the same information of \code{fitnessLandscape},
+  but in this case ther are only two columns: Genotype, that has genotypes as vectors
+  codified as characters, and Fitness.
+  }
+
+  \item{fitnessLandscape_gene_id}{A data.frame with two columns (Gene and GeneNumID),
+  that map by rows genes as letters (Gene) with genes as numbers (GeneNumID).
+  }
+
+  \item{fitnessLandscapeVariables}{A character vector that contains the
+  frequency variables necessary for the C++ code. The "fvars".
 }
+
+  \item{frequencyDependentFitness}{TRUE or FALSE as we have explained
+  before.
+  }
+  
+  \item{frequencyType}{A character string "abs" or "rel" (or NULL).
+  }
+
+   \item{full_FDF_spec}{For frequency-dependent fitness, a complete
+  data frame showing the genotypes (as matrix, letters, and "fvars") and the
+  fitness specification, in terms of the original specification
+  (Fitness_as_letters) and with genotypes mapped to numbers according to
+  the "fvars" (Fitness_as_fvars). If fitness was originally specified in
+  terms of numbers, these two columns will be identical. All the
+  information in this data frame is implicitly above, but this
+  simplifies checking that you are doing what you think you are doing.
+  }
+
+}
+
 \references{
     Diaz-Uriarte, R. (2015). Identifying restrictions in the order of
   accumulation of mutations during tumor progression: effects of
   passengers, evolutionary models, and sampling
-  \url{http://www.biomedcentral.com/1471-2105/16/41/abstract}
+  \url{http://www.biomedcentral.com/1471-2105/16/41/abstract}.
 
     McFarland, C.~D. et al. (2013). Impact of deleterious passenger
   mutations on cancer progression.  \emph{Proceedings of the National
   Academy of Sciences of the United States of America\/}, \bold{110}(8),
   2910--5.
+
+    Partow, A. ExprTk: C++ Mathematical Expression Library (MIT Open
+    Souce License). \url{http://www.partow.net/programming/exprtk/}.
 
 
 }
@@ -255,7 +370,15 @@ allMutatorEffects(epistasis = NULL, noIntGenes = NULL,
   characters because you know those characters have special meanings to
   separate names or indicate epistasis or order relationships.  Right
   now, using those characters as names is caught (and result in
-  stopping) if passed as names for noIntGenes.  }
+  stopping) if passed as names for noIntGenes.
+
+  At the moment, the variables you need to specify in the fitness
+  equations when you are in a frequency dependent fitness situation are
+  fixed as we have explained in \code{genotFitness}. Perhaps using
+  different and strange combinations of "f_" or "n_" followed by letters
+  and numbers you could confuse the R parser, but never the C++ one. For
+  a correct performance please be aware of this.
+  }
 
 
 
@@ -265,7 +388,9 @@ allMutatorEffects(epistasis = NULL, noIntGenes = NULL,
 
 \seealso{
   
-  \code{\link{evalGenotype}}, \code{\link{oncoSimulIndiv}},
+  \code{\link{evalGenotype}},
+  \code{\link{evalAllGenotypes}},
+  \code{\link{oncoSimulIndiv}},
   \code{\link{plot.fitnessEffects}},
   \code{\link{evalGenotypeFitAndMut}},
   \code{\link{rfitness}},
@@ -394,7 +519,7 @@ evalAllGenotypes(fem6, addwt = TRUE, order = FALSE)
 ## Plotting a fitness landscape
 
 fe2 <- allFitnessEffects(noIntGenes =
-                         c(a1 = 0.1, 
+                         c(a1 = 0.1,
                            b1 = 0.01,
                            c1 = 0.3))
 
@@ -407,18 +532,34 @@ plotFitnessLandscape(evalAllGenotypes(fe2, order = FALSE))
 plotFitnessLandscape(fe2)
 
 
+
 ###### Defaults for missing genotypes
-
 ## As a two-column data frame
-
 (m8 <- data.frame(G = c("A, B, C", "B"), F = c(3, 2)))
-evalAllGenotypes(allFitnessEffects(genotFitness = m8), addwt = TRUE)
+evalAllGenotypes(allFitnessEffects(genotFitness = m8),
+                 addwt = TRUE)
 
 ## As a matrix 
-
 (m9 <- rbind(c(0, 1, 0, 1, 4), c(1, 0, 1, 0, 1.5)))
-evalAllGenotypes(allFitnessEffects(genotFitness = m9), addwt = TRUE)
+evalAllGenotypes(allFitnessEffects(genotFitness = m9),
+                 addwt = TRUE)
 
+
+#########  Frequency Dependent Fitness
+genofit <- data.frame(A = c(0, 1, 0, 1),
+                      B = c(0, 0, 1, 1),
+                      Fitness = c("max(3, 2*f_)",
+                                  "max(1.5, 3*(f_ + f_1))",
+                                  "max(2, 3*(f_ + f_2))",
+                                  "max(2, 5*f_ - 0.5*( f_1 + f_2) + 15*f_1_2)"),
+                      stringsAsFactors = FALSE)
+
+afe <- allFitnessEffects(genotFitness = genofit,
+                         frequencyDependentFitness = TRUE,
+                         frequencyType = "rel")
+                         
+##Ploting fitness landscape in case of spPopSizes = c(5000, 2500, 3000, 7500)
+plotFitnessLandscape(evalAllGenotypes(afe, spPopSizes = c(5000, 2500, 3000, 7500)))
 
 ## Reinitialize the seed
 set.seed(NULL)
