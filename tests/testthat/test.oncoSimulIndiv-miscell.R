@@ -238,6 +238,7 @@ test_that("printing oncosimul pop object", {
 test_that("exercising oncoSimulSample, old format", {
               data(examplePosets)
               p701 <- examplePosets[["p701"]]
+              null <- capture.output({
               expect_message(ofw <- oncoSimulSample(2, p701,
                                                     sampleEvery = 0.03,
                                                     detectionSize = 1e3,
@@ -252,12 +253,14 @@ test_that("exercising oncoSimulSample, old format", {
                                                     onlyCancer = FALSE,
                                                     typeSample = "single"),
                              "Successfully sampled 2 individuals")
+              })
               expect_equal(dim(ofw$popSample), c(2, 7))
               expect_equal(dim(ofs$popSample), c(2, 7))
           })
 
 
 test_that("exercising oncoSimulSample, new format", {
+     null <- capture.output({
               pancr <- allFitnessEffects(data.frame(parent = c("Root", rep("KRAS", 4), "SMAD4", "CDNK2A", 
                                                         "TP53", "TP53", "MLL3"),
                                                     child = c("KRAS","SMAD4", "CDNK2A", 
@@ -281,6 +284,7 @@ test_that("exercising oncoSimulSample, new format", {
                                          typeSample = "single",
                                          showProgress = TRUE),
                   "Successfully sampled 2 individuals")
+              })
               expect_equal(dim(pS$popSample), c(2, 7))
               expect_equal(dim(pSs$popSample), c(2, 7))
           })
@@ -680,7 +684,8 @@ test_that("exercising oncoSimulIndiv, verbosity", {
     ii <- rep(.1, 20)
     names(ii) <- letters[1:20]
     p1 <- allFitnessEffects(noIntGenes = ii)
-    expect_output(pSs <- oncoSimulIndiv(p1,
+
+    suppressWarnings(expect_output(pSs <- oncoSimulIndiv(p1,
                                         initMutant = "a",
                                         model = "McFL",
                                         initSize = 1e2,
@@ -690,7 +695,7 @@ test_that("exercising oncoSimulIndiv, verbosity", {
                                         extraTime = 5,
                                         verbosity = 6,
                                         onlyCancer = FALSE),
-                  "Looping through", fixed = TRUE)
+                  "Looping through", fixed = TRUE))
     ## This is too much: can take a minute.
     ## ii <- rep(.01, 1000)
     ## names(ii) <- paste0("n", 1:1000)
@@ -850,11 +855,13 @@ test_that("old format: at most 64 genes", {
 
 
 test_that("samplePop deals with failures in simuls", {
-    
+
+    null <- capture.output({
     fe <- allFitnessEffects(noIntGenes = c(-0.1, -0.2, -0.3))
     uu <- oncoSimulIndiv(fe, max.wall.time = 0.2, max.num.tries = 5)
     uup <- oncoSimulPop(4, fe, max.wall.time = 0.2, max.num.tries = 5,
                         mc.cores = 2)
+    })
     expect_warning(uus <- samplePop(uu),
                    "It looks like this simulation never completed",
                    fixed = TRUE)
@@ -877,14 +884,18 @@ test_that("samplePop deals with failures in simuls", {
 test_that("summary.oncosimulepop deals with failures in simuls", {
     
     fe <- allFitnessEffects(noIntGenes = c(-0.1, -0.2, -0.3))
-    uup <- oncoSimulPop(4, fe, max.wall.time = 0.2, max.num.tries = 5, mc.cores = 2)
+     null <- capture.output({
+         uup <- oncoSimulPop(4, fe, max.wall.time = 0.2, max.num.tries = 5, mc.cores = 2)
+         })
     expect_warning(uus <- summary(uup),
                    "All simulations failed",
                    fixed = TRUE)
     ## And it works when only some fail
     fe2 <- allFitnessEffects(noIntGenes = c(0.1, 0.2, 0.3))
+     null <- capture.output({
     uu2 <- oncoSimulPop(2, fe2, mc.cores = 2)
     uu <- oncoSimulPop(2, fe, max.wall.time = 0.2, max.num.tries = 5, mc.cores = 2)
+    })
     u3 <- c(uu, uu2)
     class(u3) <- "oncosimulpop"
     expect_warning(uu3ps <- summary(u3),

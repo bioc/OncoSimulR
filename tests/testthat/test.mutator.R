@@ -93,7 +93,7 @@ smAnomPi <- function(out, name) {
 
 p.value.threshold <- 0.01
 
-date()
+## date()
 test_that("This should not crash", {
     ## This used to crash because of not nulling the empty mutator effects
     fe <- allFitnessEffects(epistasis = c("a : b" = 0.3,
@@ -279,6 +279,7 @@ test_that("we evaluate the WT", {
                                           "b : c" = 0.5),
                             noIntGenes = c("e" = 0.1))
     ## expect_warning(
+    null <- capture.output(
         ou <- OncoSimulR:::evalRGenotype(vector(mode = "integer",
                                                            length = 0),
                                                     fe,
@@ -288,7 +289,8 @@ test_that("we evaluate the WT", {
                                                     "evalGenotype", 
                                                     0)## ,
                    ## "WARNING: you have evaluated fitness/mutator status of a genotype of length zero",
-                   ## fixed = TRUE)
+        ## fixed = TRUE)
+        )
     expect_identical(ou, 1)
 })
 
@@ -300,6 +302,7 @@ test_that("we evaluate the WT, 2", {
     fm <- OncoSimulR:::allMutatorEffects(noIntGenes = c("a" = 10,
                                                         "c" = 5))
     ## expect_warning(
+    null <- capture.output(
         ou2 <- OncoSimulR:::evalRGenotypeAndMut(
                        vector(mode = "integer", length = 0),
                        fe,
@@ -310,7 +313,8 @@ test_that("we evaluate the WT, 2", {
                        FALSE, 
                        0)## ,
                    ## "WARNING: you have evaluated fitness of a genotype of length zero.",
-                   ## fixed = TRUE)
+        ## fixed = TRUE)
+        )
     expect_identical(ou2, c(1, 1))
 })
     
@@ -405,7 +409,7 @@ test_that("evaluating genotype and mutator", {
 })
 
 
-date() 
+## date() 
 test_that("Mutator, several modules differences, fitness eval", {
     ## the basis of what we do below, but fewer genes here
     ln <- 2 
@@ -448,18 +452,18 @@ test_that("Mutator, several modules differences, fitness eval", {
                       rep(125, 7))
     )
 })
-date()
+## date()
 
 
 
 
 
-date()
+## date()
 test_that("McFL: Relative ordering of number of clones with mut prop growth and init and scrambled names", {
     max.tries <- 4  
     for(tries in 1:max.tries) {
     ## Can occasionally blow up with pE.f: pE not finite.
-    cat("\n x2gh: a runif is", runif(1), "\n")
+    ## cat("\n x2gh: a runif is", runif(1), "\n")
     pops <- 50
     ft <- 1
     lni <- 200
@@ -517,10 +521,10 @@ test_that("McFL: Relative ordering of number of clones with mut prop growth and 
     T8 <- (t.test(mutsPerClone(pg), mutsPerClone(npg), alternative = "greater")$p.value < p.value.threshold)
         if( T1 && T3 && T4 && T5 && T6 && T7 && T8 ) break;    
     }
-    cat(paste("\n done tries", tries, "\n"))
+    ## cat(paste("\n done tries", tries, "\n"))
     expect_true(T1 && T3 && T4 && T5 && T6 && T7 && T8)
     })
-date()
+## date()
 
 ##### Comparisons against expected freqs, using a chi-square
 
@@ -538,7 +542,7 @@ date()
 ## specified passing a vector of same size as genome. It would be faster
 ## to use just the name of mutator gene.
 
-date()
+## date()
 test_that("Expect freq genotypes, mutator and var mut rates", {
     ## We test that mutator does not affect expected frequencies of
     ## mutated genes: they are given by the mutation rate of each gene.
@@ -547,7 +551,7 @@ test_that("Expect freq genotypes, mutator and var mut rates", {
 
     
     
-    cat("\n u6: a runif is", runif(1), "\n")
+    ## cat("\n u6: a runif is", runif(1), "\n")
     pops <- 20
     ft <- .0001
     lni <- 80 
@@ -573,7 +577,8 @@ test_that("Expect freq genotypes, mutator and var mut rates", {
     mutator1["oreoisasabgene"] <- 34    ## 53
     m1 <- allMutatorEffects(noIntGenes = mutator1)
     ## have something with much larger mutation rate
-    pg1["hereisoneagene"] <- 1e-3 ## 1e-3
+        pg1["hereisoneagene"] <- 1e-3 ## 1e-3
+        null <- capture.output({
     m1.pg1.b <- oncoSimulPop(pops,
                            fe,
                            mu = pg1,
@@ -583,21 +588,22 @@ test_that("Expect freq genotypes, mutator and var mut rates", {
                            initSize = no,
                            initMutant ="oreoisasabgene",
                            onlyCancer = FALSE, detectionProb = NA, seed = NULL, mc.cores = 2)
+    })
     expect_true(sm("oreoisasabgene", m1.pg1.b) == totalind(m1.pg1.b))
     enom("oreoisasabgene", pg1, no, pops)
     snom("oreoisasabgene", m1.pg1.b)
     p.fail <- 1e-3
-    T1 <- (chisq.test(snom("oreoisasabgene", m1.pg1.b),
-                      p = pnom("oreoisasabgene", pg1, no, pops))$p.value > p.fail)
+        suppressWarnings(T1 <- (chisq.test(snom("oreoisasabgene", m1.pg1.b),
+                      p = pnom("oreoisasabgene", pg1, no, pops))$p.value > p.fail))
         if(T1) break;
     }
-    cat(paste("\n done tries", tries, "\n"))
+    ## cat(paste("\n done tries", tries, "\n"))
     expect_true(T1)
 })
-date()
+## date()
 
 
-date()
+## date()
 test_that("McFL, Expect freq genotypes, mutator and var mut rates", {
     max.tries <- 4
     for(tries in 1:max.tries) {
@@ -606,7 +612,7 @@ test_that("McFL, Expect freq genotypes, mutator and var mut rates", {
     ## mutated genes: they are given by the mutation rate of each gene.
     
     
-    cat("\n mcfu6: a runif is", runif(1), "\n")
+    ## cat("\n mcfu6: a runif is", runif(1), "\n")
     pops <- 20
     ft <- .0001
     lni <- 80 
@@ -632,7 +638,8 @@ test_that("McFL, Expect freq genotypes, mutator and var mut rates", {
     mutator1["oreoisasabgene"] <- 47
     m1 <- allMutatorEffects(noIntGenes = mutator1)
     ## have something with much larger mutation rate
-    pg1["hereisoneagene"] <- 1e-3 ## 1e-3
+        pg1["hereisoneagene"] <- 1e-3 ## 1e-3
+        null <- capture.output({
     m1.pg1.b <- oncoSimulPop(pops,
                            fe,
                            mu = pg1,
@@ -643,27 +650,28 @@ test_that("McFL, Expect freq genotypes, mutator and var mut rates", {
                            model = "McFL",
                            initMutant ="oreoisasabgene",
                            onlyCancer = FALSE, detectionProb = NA, seed = NULL, mc.cores = 2)
+    })
     expect_true(sm("oreoisasabgene", m1.pg1.b) == totalind(m1.pg1.b))
     enom("oreoisasabgene", pg1, no, pops)
     snom("oreoisasabgene", m1.pg1.b)
     p.fail <- 1e-3
-    T1 <- (chisq.test(snom("oreoisasabgene", m1.pg1.b),
-                           p = pnom("oreoisasabgene", pg1, no, pops))$p.value > p.fail)
+        suppressWarnings(T1 <- (chisq.test(snom("oreoisasabgene", m1.pg1.b),
+                           p = pnom("oreoisasabgene", pg1, no, pops))$p.value > p.fail))
         summary(m1.pg1.b)[, c(1:3, 8:9)]
         if(T1 ) break;
     }
 
-    cat(paste("\n done tries", tries, "\n"))
+    ## cat(paste("\n done tries", tries, "\n"))
     expect_true( T1 )
 })
-date()
+## date()
 
 
 
 
 
 
-date()
+## date()
 test_that("McFL: Same mu vector, different mutator; diffs in number muts, tiny t", {
     max.tries <- 4
     for(tries in 1:max.tries) {
@@ -677,7 +685,7 @@ test_that("McFL: Same mu vector, different mutator; diffs in number muts, tiny t
     ##        - number of total mutation events
     
     
-    cat("\n nm2: a runif is", runif(1), "\n")
+    ## cat("\n nm2: a runif is", runif(1), "\n")
     pops <- 20
     ft <- .0001
     lni <- 100
@@ -694,7 +702,8 @@ test_that("McFL: Same mu vector, different mutator; diffs in number muts, tiny t
     mutator100[] <- 100
     fe <- allFitnessEffects(noIntGenes = fi)
     m10 <- allMutatorEffects(noIntGenes = mutator10)
-    m100 <- allMutatorEffects(noIntGenes = mutator100)
+        m100 <- allMutatorEffects(noIntGenes = mutator100)
+        null <- capture.output({
     pop10 <- oncoSimulPop(pops,
                         fe,
                         mu = muvector,
@@ -715,20 +724,23 @@ test_that("McFL: Same mu vector, different mutator; diffs in number muts, tiny t
                         initSize = no,
                         initMutant = names(mutator10),
                         onlyCancer = FALSE, detectionProb = NA, seed = NULL, mc.cores = 2)
-    ## number of total mutations
+    })
+        ## number of total mutations
+        suppressWarnings({
     T1 <- (smAnomPi(pop10, names(mutator10)) < smAnomPi(pop100, names(mutator100)))
     ## number of clones
     T2 <- (wilcox.test(NClones(pop100),  NClones(pop10), alternative = "greater")$p.value < p.value.threshold)
     T3 <- (t.test(mutsPerClone(pop100), mutsPerClone(pop10), alternative = "greater")$p.value < p.value.threshold)
+    })
         if( T1 && T2 && T3 ) break;
     }
-    cat(paste("\n done tries", tries, "\n"))
+    ## cat(paste("\n done tries", tries, "\n"))
     expect_true(T1 && T2 && T3 )
 })
-date()
+## date()
 
 
-date()
+## date()
 test_that("McFL: Same mu vector, different mutator; diffs in number muts, larger t", {
     ## reproduction, death, and double and possibly triple mutants. We
     ## decrease init pop size to make this fast.
@@ -738,7 +750,7 @@ test_that("McFL: Same mu vector, different mutator; diffs in number muts, larger
 
     
     
-    cat("\n nm3: a runif is", runif(1), "\n")
+    ## cat("\n nm3: a runif is", runif(1), "\n")
     pops <- 20
     ft <- 1
     lni <- 100
@@ -755,7 +767,8 @@ test_that("McFL: Same mu vector, different mutator; diffs in number muts, larger
     mutator100[] <- 100
     fe <- allFitnessEffects(noIntGenes = fi)
     m10 <- allMutatorEffects(noIntGenes = mutator10)
-    m100 <- allMutatorEffects(noIntGenes = mutator100)
+        m100 <- allMutatorEffects(noIntGenes = mutator100)
+        null <- capture.output({
     pop10 <- oncoSimulPop(pops,
                         fe,
                         mu = muvector,
@@ -776,22 +789,25 @@ test_that("McFL: Same mu vector, different mutator; diffs in number muts, larger
                         initSize = no,
                         initMutant = names(mutator10),
                         onlyCancer = FALSE, detectionProb = NA, seed = NULL, mc.cores = 2)
+    })
     ## number of total mutations
     expect_true(smAnomPi(pop10, names(mutator10)) < smAnomPi(pop100, names(mutator100)))
-    ## number of clones
+        ## number of clones
+        suppressWarnings({
     T1 <- (wilcox.test(NClones(pop100),  NClones(pop10), alternative = "greater")$p.value < p.value.threshold)
     T2 <- (t.test(mutsPerClone(pop100), mutsPerClone(pop10), alternative = "greater")$p.value < p.value.threshold)
+    })
         if(T1 && T2) break;
     }
-    cat(paste("\n done tries", tries, "\n"))
+    ## cat(paste("\n done tries", tries, "\n"))
     expect_true(T1 && T2 )
     })
-date()
+## date()
 
 
 
 
-date()
+## date()
 test_that(" MCFL Init with different mutators", {
         max.tries <- 4
     for(tries in 1:max.tries) {
@@ -799,7 +815,7 @@ test_that(" MCFL Init with different mutators", {
 
     
     
-    cat("\n mcfl_z2: a runif is", runif(1), "\n")
+    ## cat("\n mcfl_z2: a runif is", runif(1), "\n")
     pops <- 20
     ft <- .005
     lni <- 50
@@ -821,7 +837,8 @@ test_that(" MCFL Init with different mutators", {
     mutator1["hereisoneagene"] <- 100
     mutator1["oreoisasabgene"] <- 1
     mutator1["nnhsisthecgene"] <- 0.01
-    m1 <- allMutatorEffects(noIntGenes = mutator1)
+        m1 <- allMutatorEffects(noIntGenes = mutator1)
+        null <- capture.output({
     m1.pg1.a <- oncoSimulPop(pops,
                            fe,
                            mu = pg1,
@@ -855,10 +872,13 @@ test_that(" MCFL Init with different mutators", {
                            initMutant = "nnhsisthecgene",
                            sampleEvery = 0.01, keepEvery = 5, seed = NULL,
                            onlyCancer = FALSE, detectionProb = NA, mc.cores = 2)
+    })
+        suppressWarnings({
     T1  <- (wilcox.test(NClones(m1.pg1.a),  NClones(m1.pg1.b), alternative = "greater")$p.value < p.value.threshold)
     T2  <- (wilcox.test(NClones(m1.pg1.b),  NClones(m1.pg1.c), alternative = "greater")$p.value < p.value.threshold)
     T3  <- (t.test(mutsPerClone(m1.pg1.a), mutsPerClone(m1.pg1.b), alternative = "greater")$p.value < p.value.threshold)
     T4  <- (t.test(mutsPerClone(m1.pg1.b), mutsPerClone(m1.pg1.c), alternative = "greater")$p.value < p.value.threshold)
+    })
     T5  <- (smAnomPi(m1.pg1.a, "hereisoneagene") >
                 smAnomPi(m1.pg1.b, "oreoisasabgene"))
     T6  <- (smAnomPi(m1.pg1.b, "oreoisasabgene") >
@@ -868,103 +888,105 @@ test_that(" MCFL Init with different mutators", {
     summary(m1.pg1.c)[, c(1:3, 8:9)]
         if(T1 && T2 && T3 && T4 && T5 && T6) break;
     }
-            cat(paste("\n done tries", tries, "\n"))
+            ## cat(paste("\n done tries", tries, "\n"))
     expect_true(T1 && T2 && T3 && T4 && T5 && T6)
 
 })
-date()
+## date()
 
 
 
  
 
-date() 
+## date() 
 test_that("Mutator, several modules differences", {
     max.tries <- 4 
     for(tries in 1:max.tries) {
-    cat("\n mmdSM1: a runif is", runif(1), "\n")
-    reps <- 60
-    no <- 5e3
-    ft <- 50 ## you need it large enough to get enough hits
-    mu <- 1e-5
-    ln <- 100
-    m1 <- 5 ## if this is too large, easy to get it to blow.
-    ## Having three renders it too unpredictable in time.
-    ## ni <- rep(0, 3 * ln)
-    ## gna <- paste0("a", 1:ln)
-    ## gnb <- paste0("b", 1:ln)
-    ## gnc <- paste0("c", 1:ln)
-    ## names(ni) <- c(gna, gnb, gnc)
-    ## gn1 <- paste(c(gna, gnb, gnc), collapse = ", ")
-    ## gna <- paste(gna, collapse = ", ")
-    ## gnb <- paste(gnb, collapse = ", ")
-    ## gnc <- paste(gnc, collapse = ", ")
-    ## mut1 <- allMutatorEffects(epistasis = c("A" = m1),
-    ##                           geneToModule = c("A" = gn1))
-    ## mut2 <- allMutatorEffects(epistasis = c("A" = m1,
-    ##                                         "B" = m1,
-    ##                                         "C" = m1),
-    ##                           geneToModule = c("A" = gna,
-    ##                                            "B" = gnb,
-    ##                                            "C" = gnc))
-    ni <- rep(0, 2 * ln)
-    gna <- paste0("a", 1:ln)
-    gnb <- paste0("b", 1:ln)
-    names(ni) <- c(gna, gnb  )
-    gn1 <- paste(c(gna, gnb), collapse = ", ")
-    gna <- paste(gna, collapse = ", ")
-    gnb <- paste(gnb, collapse = ", ")
-    mut1 <- allMutatorEffects(epistasis = c("A" = m1),
-                              geneToModule = c("A" = gn1))
-    mut2 <- allMutatorEffects(epistasis = c("A" = m1,
-                                            "B" = m1),
-                              geneToModule = c("A" = gna,
-                                               "B" = gnb))
-    f1 <- allFitnessEffects(noIntGenes = ni)
-    b1 <- oncoSimulPop(reps,
-                       f1,
-                       mu = mu,
-                       muEF = mut1,
-                       onlyCancer = FALSE, detectionProb = NA,
-                       initSize = no,
-                       finalTime = ft,
-                       seed = NULL, mc.cores = 2
-                       )
-    gc()
-    b2 <- oncoSimulPop(reps,
-                       f1,
-                       mu = mu,
-                       muEF = mut2,
-                       onlyCancer = FALSE, detectionProb = NA,
-                       initSize = no,
-                       finalTime = ft,
-                       seed = NULL, mc.cores = 2
-                       )
-    gc()
-    ## p.value.threshold <- 0.05 ## diffs here small, unless large reps
-    ## summary(b2)[, c(1:3, 8:9)]
-    ## summary(b1)[, c(1:3, 8:9)]
-    ## mean(mutsPerClone(b2))
-    ## mean(mutsPerClone(b1))
-    ## This is, of course, affected by sampling only at end: we do not see
-    ## the many intermediate events.
-    T1 <- ( wilcox.test(summary(b2)$NumClones,
-                             summary(b1)$NumClones, alternative = "greater")$p.value < p.value.threshold)
-    T2 <- (t.test(mutsPerClone(b2), mutsPerClone(b1), alternative = "greater")$p.value < p.value.threshold)
-    ## it very rarely fails; what are the p-values?
-    print(suppressWarnings(wilcox.test(summary(b2)$NumClones,
-                                       summary(b1)$NumClones, alternative = "greater")$p.value))
-    print(suppressWarnings(t.test(mutsPerClone(b2), mutsPerClone(b1), alternative = "greater")$p.value))
-    if( T1 && T2 ) break;
+        ## cat("\n mmdSM1: a runif is", runif(1), "\n")
+        reps <- 60
+        no <- 5e3
+        ft <- 50 ## you need it large enough to get enough hits
+        mu <- 1e-5
+        ln <- 100
+        m1 <- 5 ## if this is too large, easy to get it to blow.
+        ## Having three renders it too unpredictable in time.
+        ## ni <- rep(0, 3 * ln)
+        ## gna <- paste0("a", 1:ln)
+        ## gnb <- paste0("b", 1:ln)
+        ## gnc <- paste0("c", 1:ln)
+        ## names(ni) <- c(gna, gnb, gnc)
+        ## gn1 <- paste(c(gna, gnb, gnc), collapse = ", ")
+        ## gna <- paste(gna, collapse = ", ")
+        ## gnb <- paste(gnb, collapse = ", ")
+        ## gnc <- paste(gnc, collapse = ", ")
+        ## mut1 <- allMutatorEffects(epistasis = c("A" = m1),
+        ##                           geneToModule = c("A" = gn1))
+        ## mut2 <- allMutatorEffects(epistasis = c("A" = m1,
+        ##                                         "B" = m1,
+        ##                                         "C" = m1),
+        ##                           geneToModule = c("A" = gna,
+        ##                                            "B" = gnb,
+        ##                                            "C" = gnc))
+        ni <- rep(0, 2 * ln)
+        gna <- paste0("a", 1:ln)
+        gnb <- paste0("b", 1:ln)
+        names(ni) <- c(gna, gnb  )
+        gn1 <- paste(c(gna, gnb), collapse = ", ")
+        gna <- paste(gna, collapse = ", ")
+        gnb <- paste(gnb, collapse = ", ")
+        mut1 <- allMutatorEffects(epistasis = c("A" = m1),
+                                  geneToModule = c("A" = gn1))
+        mut2 <- allMutatorEffects(epistasis = c("A" = m1,
+                                                "B" = m1),
+                                  geneToModule = c("A" = gna,
+                                                   "B" = gnb))
+        f1 <- allFitnessEffects(noIntGenes = ni)
+        b1 <- oncoSimulPop(reps,
+                           f1,
+                           mu = mu,
+                           muEF = mut1,
+                           onlyCancer = FALSE, detectionProb = NA,
+                           initSize = no,
+                           finalTime = ft,
+                           seed = NULL, mc.cores = 2
+                           )
+        null <- gc()
+        b2 <- oncoSimulPop(reps,
+                           f1,
+                           mu = mu,
+                           muEF = mut2,
+                           onlyCancer = FALSE, detectionProb = NA,
+                           initSize = no,
+                           finalTime = ft,
+                           seed = NULL, mc.cores = 2
+                           )
+        null <- gc()
+        ## p.value.threshold <- 0.05 ## diffs here small, unless large reps
+        ## summary(b2)[, c(1:3, 8:9)]
+        ## summary(b1)[, c(1:3, 8:9)]
+        ## mean(mutsPerClone(b2))
+        ## mean(mutsPerClone(b1))
+        ## This is, of course, affected by sampling only at end: we do not see
+        ## the many intermediate events.
+        suppressWarnings({
+            T1 <- ( wilcox.test(summary(b2)$NumClones,
+                                summary(b1)$NumClones, alternative = "greater")$p.value < p.value.threshold)
+            T2 <- (t.test(mutsPerClone(b2), mutsPerClone(b1), alternative = "greater")$p.value < p.value.threshold)
+        })
+        ## it very rarely fails; what are the p-values?
+        print(suppressWarnings(wilcox.test(summary(b2)$NumClones,
+                                           summary(b1)$NumClones, alternative = "greater")$p.value))
+        print(suppressWarnings(t.test(mutsPerClone(b2), mutsPerClone(b1), alternative = "greater")$p.value))
+        if( T1 && T2 ) break;
     }
-    cat(paste ("\n done tries ", tries, "\n"))
+    ## cat(paste ("\n done tries ", tries, "\n"))
     expect_true( (T1 && T2) )
-    })
-date()
+})
+## date()
 
 
 
-date() 
+## date() 
 test_that("Mutator and mutPropGrowth, mcfl", {
         max.tries <- 4
     for(tries in 1:max.tries) {
@@ -972,7 +994,7 @@ test_that("Mutator and mutPropGrowth, mcfl", {
 
     ## we stop on size
     ## Note that names of modules are different. Just for fun.
-    cat("\n mmpg_mcfl: a runif is", runif(1), "\n")
+    ## cat("\n mmpg_mcfl: a runif is", runif(1), "\n")
     reps <- 14
     no <- 5e3
     ds <- 1.5e4
@@ -1049,7 +1071,8 @@ test_that("Mutator and mutPropGrowth, mcfl", {
     summary(m50.pg)[, c(1:3, 8:9)]
     summary(m1.npg)[, c(1:3, 8:9)]
     summary(m50.npg)[, c(1:3, 8:9)]
-    ## Over mutator, as we have mutPropGrowth, clones, etc, increase
+        ## Over mutator, as we have mutPropGrowth, clones, etc, increase
+        suppressWarnings({
     T1  <- ( wilcox.test(summary(m1.pg)$NumClones,
                              summary(m1.npg)$NumClones,
                              alternative = "greater")$p.value < p.value.threshold)
@@ -1074,13 +1097,14 @@ test_that("Mutator and mutPropGrowth, mcfl", {
                              alternative = "greater")$p.value < p.value.threshold)
     T8  <- (t.test(mutsPerClone(m50.npg),
                        mutsPerClone(m1.npg),
-                       alternative = "greater")$p.value < p.value.threshold)
+                   alternative = "greater")$p.value < p.value.threshold)
+    })
         if( T1 && T2 && T3 && T4 && T5 && T6 && T7 && T8) break;
     }
-            cat(paste("\n done tries", tries, "\n"))
+            ## cat(paste("\n done tries", tries, "\n"))
     expect_true(T1 && T2 && T3 && T4 && T5 && T6 && T7 && T8)
     })
-date()
+## date()
 
 
 
