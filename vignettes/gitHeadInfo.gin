@@ -1,15 +1,15 @@
 \usepackage[%
-		shash={e936e3f},
-		lhash={e936e3f8cc52b926f7b16691b9fd58aae19a465e},
+		shash={bb4ad3b},
+		lhash={bb4ad3b194b97eba03a197a4e6d432f1a1e9167f},
 		authname={ramon diaz-uriarte (at Phelsuma)},
 		authemail={rdiaz02@gmail.com},
-		authsdate={2021-03-20},
-		authidate={2021-03-20 15:18:00 +0100},
-		authudate={1616249880},
+		authsdate={2021-04-27},
+		authidate={2021-04-27 15:43:25 +0200},
+		authudate={1619531005},
 		commname={ramon diaz-uriarte (at Phelsuma)},
 		commemail={rdiaz02@gmail.com},
-		commsdate={2021-03-20},
-		commidate={2021-03-20 15:18:00 +0100},
-		commudate={1616249880},
-		refnames={ (HEAD -> freq-dep-fitness, origin/freq-dep-fitness)}
+		commsdate={2021-04-27},
+		commidate={2021-04-27 15:43:25 +0200},
+		commudate={1619531005},
+		refnames={ (HEAD -> freq-dep-fitness, origin/rfitness_scale_3, rfitness_scale_3)}
 	]{gitsetinfo}
