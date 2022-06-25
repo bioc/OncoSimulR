@@ -1,8 +1,8 @@
 Package: OncoSimulR
 Type: Package
 Title: Forward Genetic Simulation of Cancer Progression with Epistasis 
-Version: 3.5.0
-Date: 2021-10-06
+Version: 3.99.1
+Date: 2022-06-25
 Authors@R: c(
 	      person("Ramon", "Diaz-Uriarte", role = c("aut", "cre"),	
  	   		     email = "rdiaz02@gmail.com"),
@@ -13,6 +13,14 @@ Authors@R: c(
               person("Mark", "Taylor", role = "ctb",
 	        email = "ningkiling@gmail.com",
 		comment = "plot.stream, plot.stacked"),
+	      person("Niklas", "Endres", role = "ctb",
+	             comment = "vignette examples, freq-dep-fitness time"),
+              person("Javier", "Mu~noz Haro", role = "aut",
+		comment = "interventions"),
+	      person("Alberto", "Gonzalez Klein", role = "aut",
+	        comment = "user-specified death rates"),
+	      person("Javier", "Lopez Cano", role = "aut",
+	        comment = "user-defined variables"),	
 	      person("Arash", "Partow", role = "ctb", comment = "ExprTk"),
 	      person("Sophie", "Brouillet", role = "ctb", comment = "MAGELLAN"),
 	      person("Sebastian", "Matuszewski", role = "ctb",
@@ -20,6 +28,7 @@ Authors@R: c(
 	      person("Harry", "Annoni", role = "ctb", comment = "MAGELLAN"),
 	      person("Luca", "Ferretti", role = "ctb", comment = "MAGELLAN"),	      
 	      person("Guillaume", "Achaz", role = "ctb", comment = "MAGELLAN"),
+	      person("Wolodzko", "Tymoteusz", role = "ctb", comment = "multivariate hypergeometric"),
 	      person("Guillermo", "Gorines Cordero", role = "ctb",
 	             comment = "rfitness"),
 	      person("Ivan", "Lorca Alonso", role = "ctb",
@@ -90,13 +99,15 @@ Authors@R: c(
 	      person("Rafael", "Barrero Rodriguez", role = "ctb",
 	             comment = "vignette examples"),
 	      person("Silvia", "Talavera Marcos", role = "ctb",
-	             comment = "vignette examples"),
-	      person("Niklas", "Endres", role = "ctb",
-	             comment = "vignette examples, freq-dep-fitness time")
+	             comment = "vignette examples")
 	      )  
 Author: Ramon Diaz-Uriarte [aut, cre],
 	Sergio Sanchez-Carrillo [aut],
 	Juan Antonio Miguel Gonzalez [aut],
+	Alberto Gonzalez Klein [aut],
+	Javier Mu\~noz Haro [aut],
+	Javier Lopez Cano [aut],
+	Niklas Endres [ctb],  
 	Mark Taylor [ctb],
 	Arash Partow [ctb],
 	Sophie Brouillet [ctb],
@@ -104,6 +115,7 @@ Author: Ramon Diaz-Uriarte [aut, cre],
 	Harry Annoni [ctb],
 	Luca Ferretti [ctb],
 	Guillaume Achaz [ctb],
+	Tymoteusz Wolodzko [ctb],
 	Guillermo Gorines Cordero [ctb],
 	Ivan Lorca Alonso [ctb],
 	Francisco Mu\~noz Lopez [ctb],
@@ -140,27 +152,9 @@ Author: Ramon Diaz-Uriarte [aut, cre],
 	Guillermo Garcia Hoyos [ctb],
 	Rosalia Palomino Cabrera [ctb],
 	Rafael Barrero Rodriguez [ctb],
-	Silvia Talavera Marcos [ctb],
-	Niklas Endres [ctb]  
+	Silvia Talavera Marcos [ctb]	
 Maintainer: Ramon Diaz-Uriarte <rdiaz02@gmail.com>
-Description: Functions for forward population genetic simulation in
-    asexual populations, with special focus on cancer progression.
-    Fitness can be an arbitrary function of genetic interactions between
-    multiple genes or modules of genes, including epistasis, order
-    restrictions in mutation accumulation, and order effects.  Fitness can
-    also be a function of the relative and absolute frequencies of other
-    genotypes (i.e., frequency-dependent fitness). Mutation rates can
-    differ between genes, and we can include mutator/antimutator genes (to
-    model mutator phenotypes). Simulating multi-species scenarios and
-    therapeutic interventions is also possible. Simulations use
-    continuous-time models and can include driver and passenger genes and
-    modules.  Also included are functions for: simulating random DAGs of
-    the type found in Oncogenetic Trees, Conjunctive Bayesian Networks,
-    and other cancer progression models; plotting and sampling from single
-    or multiple realizations of the simulations, including single-cell
-    sampling; plotting the parent-child relationships of the clones;
-    generating random fitness landscapes (Rough Mount Fuji, House of
-    Cards, additive, NK, Ising, and Eggbox models) and plotting them.
+Description: Functions for forward population genetic simulation in asexual populations, with special focus on cancer progression. Fitness can be an arbitrary function of genetic interactions between multiple genes or modules of genes, including epistasis, order restrictions in mutation accumulation, and order effects. Fitness (including just birth, just death, or both and death) can also be a function of the relative and absolute frequencies of other genotypes (i.e., frequency-dependent fitness). Mutation rates can differ between genes, and we can include mutator/antimutator genes (to model mutator phenotypes). Simulating multi-species scenarios and therapeutic interventions, including adaptive therapy, is also possible. Simulations use continuous-time models and can include driver and passenger genes and modules. Also included are functions for: simulating random DAGs of the type found in Oncogenetic Trees, Conjunctive Bayesian Networks, and other cancer progression models; plotting and sampling from single or multiple realizations of the simulations, including single-cell sampling; plotting the parent-child relationships of the clones; generating random fitness landscapes (Rough Mount Fuji, House of Cards, additive, NK, Ising, and Eggbox models) and plotting them.
 biocViews: BiologicalQuestion, SomaticMutation
 License: GPL (>= 3)
 URL: https://github.com/rdiaz02/OncoSimul, https://popmodels.cancercontrol.cancer.gov/gsr/packages/oncosimulr/
