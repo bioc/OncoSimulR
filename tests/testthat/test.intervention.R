@@ -43,9 +43,9 @@ test_that("2. Two interventions cannot have the same ID (check_double_id)", {
             WhatHappens = "n_A = n_A * 0.4",
             Repetitions = Inf,
             Periodicity = Inf
-        )   
+        )
     )
-    testthat::expect_error(createInterventions(interventions, afd3), "Check the interventions, there are 2 or more that have same IDs")    
+    testthat::expect_error(createInterventions(interventions, afd3), "Check the interventions, there are 2 or more that have same IDs")
 })
 
 test_that("3. The attribute WhatHappens is correctly specified (check_what_happens)",{
@@ -55,11 +55,12 @@ test_that("3. The attribute WhatHappens is correctly specified (check_what_happe
             WhatHappens   = "n_A +1 = n_A * 0.1",
             Repetitions   = 0,
             Periodicity   = Inf
-        )  
+        )
     )
 
-    testthat::expect_error(createInterventions(interventions, afd3), "The specification of WhatHappens is wrong.\n It should be: 
-        <genotype_to_apply_some_operation or total_population> = <some_operation>\n Exiting.")
+    testthat::expect_error(createInterventions(interventions, afd3),
+                           "The specification of WhatHappens is wrong.\n It should be:")
+    ## <genotype_to_apply_some_operation or total_population> = <some_operation>\n Exiting.")
 
     interventions <- list(
         list(ID           = "intOverA",
@@ -67,11 +68,12 @@ test_that("3. The attribute WhatHappens is correctly specified (check_what_happe
             WhatHappens   = "n_A = n_A * 0.1 = 32",
             Repetitions   = 0,
             Periodicity   = Inf
-        )  
+        )
     )
 
-    testthat::expect_error(createInterventions(interventions, afd3), "The specification of WhatHappens is wrong.\n It should be: 
-        <genotype_to_apply_some_operation or total_population> = <some_operation>\n Exiting.")
+    testthat::expect_error(createInterventions(interventions, afd3),
+                           "The specification of WhatHappens is wrong.\n It should be:")
+    ##    <genotype_to_apply_some_operation or total_population> = <some_operation>\n Exiting.")
 
     interventions <- list(
         list(ID           = "intOverA",
@@ -79,15 +81,16 @@ test_that("3. The attribute WhatHappens is correctly specified (check_what_happe
             WhatHappens   = "= n_A * 0.1 = 32",
             Repetitions   = 0,
             Periodicity   = Inf
-        )  
+        )
     )
 
-    testthat::expect_error(createInterventions(interventions, afd3), "The specification of WhatHappens is wrong.\n It should be: 
-        <genotype_to_apply_some_operation or total_population> = <some_operation>\n Exiting.")
+    testthat::expect_error(createInterventions(interventions, afd3),
+                           "The specification of WhatHappens is wrong.\n It should be:")
+    ## <genotype_to_apply_some_operation or total_population> = <some_operation>\n Exiting.")
 })
 
 test_that("4. The user cannot create population in an intervention",{
-    # in this test, the main goal is to create a scenario where 
+    # in this test, the main goal is to create a scenario where
     # the whathappens is wrong, and creates population
 
     list_of_interventions <- list(
@@ -96,7 +99,7 @@ test_that("4. The user cannot create population in an intervention",{
             WhatHappens   = "n_A = n_A * 2",
             Repetitions   = 0,
             Periodicity   = Inf
-        )  
+        )
     )
 
     # we force the A genotype to not have mutationrate of 1 to avoid unexpected messages.
@@ -111,7 +114,7 @@ test_that("4. The user cannot create population in an intervention",{
     interventions <- createInterventions(list_of_interventions, afd3)
 
     testthat::expect_output(oncoSimulIndiv(
-                    afd3, 
+                    afd3,
                     model = "McFL",
                     mu = 1e-4,
                     initSize = c(20000, 20000),
@@ -120,8 +123,8 @@ test_that("4. The user cannot create population in an intervention",{
                     sampleEvery = 0.01,
                     onlyCancer = FALSE,
                     interventions = interventions
-                    ), , paste0("In intervention:", interventions[[1]]$ID, 
-                        " with WhatHappens: ", interventions[[1]]$WhatHappens, 
+                    ), , paste0("In intervention:", interventions[[1]]$ID,
+                        " with WhatHappens: ", interventions[[1]]$WhatHappens,
                         ". You cannot intervene to generate more population."))
 
 })
@@ -138,7 +141,7 @@ test_that("5. Drastically reducing A-genotype population (McFL) | Trigger depend
                           frequencyType = "abs")
     # run the simulation without interventions
     ep1 <- oncoSimulIndiv(
-                    afd3, 
+                    afd3,
                     model = "McFL",
                     mu = 1e-4,
                     initSize = c(20000, 20000),
@@ -161,7 +164,7 @@ test_that("5. Drastically reducing A-genotype population (McFL) | Trigger depend
 
     # run the simulation WITH interventions
     ep2 <- oncoSimulIndiv(
-                    afd3, 
+                    afd3,
                     model = "McFL",
                     mu = 1e-4,
                     initSize = c(20000, 20000),
@@ -197,7 +200,7 @@ test_that("6. Drastically reducing A population (Exp) | Trigger dependending on 
                           frequencyType = "abs")
 
     ep1 <- oncoSimulIndiv(
-                    afd3, 
+                    afd3,
                     model = "Exp",
                     mu = 1e-4,
                     sampleEvery = 0.001,
@@ -220,7 +223,7 @@ test_that("6. Drastically reducing A population (Exp) | Trigger dependending on 
     interventions <- createInterventions(interventions, afd3)
 
     ep2 <- oncoSimulIndiv(
-                    afd3, 
+                    afd3,
                     model = "Exp",
                     mu = 1e-4,
                     sampleEvery = 0.001,
@@ -258,7 +261,7 @@ test_that("7. Intervening over total population (McFL) | Trigger depends on T", 
             ID            = "intOverTotPop",
             Trigger       = "T > 40",
             WhatHappens   = "N = N * 0.6",
-            Repetitions   = 2,   
+            Repetitions   = 2,
             Periodicity   = 20
         )
     )
@@ -323,7 +326,7 @@ test_that("8. Intervening over total population (Exp) | Trigger depends on T", {
             ID            = "intOverTotPop",
             Trigger       = "T > 10",
             WhatHappens   = "N = N * 0.8",
-            Repetitions   = 2,   
+            Repetitions   = 2,
             Periodicity   = 10
         )
     )
@@ -339,7 +342,7 @@ test_that("8. Intervening over total population (Exp) | Trigger depends on T", {
                             sampleEvery = 0.001,
                             interventions = interventions)
 
-    # it may happen that, in some simulations, the population collapses, in that case, 
+    # it may happen that, in some simulations, the population collapses, in that case,
     # pops by time is null, and cannot be checked
 
     # we can check genotype by genotype that when an intervention ocurs, their population lowers
@@ -380,7 +383,7 @@ test_that("11. Intervening over 4 genotypes both over specific genotype and tota
                       Fitness = c("1",
                                   "1.01 + (0 * n_A)",
                                   "1.1",
-                                  "1.09", 
+                                  "1.09",
                                   "1.07"))
 
     afd3 <- allFitnessEffects(genotFitness = df3x,
@@ -391,28 +394,28 @@ test_that("11. Intervening over 4 genotypes both over specific genotype and tota
             ID            = "intOverA",
             Trigger       = "T >= 1.2",
             WhatHappens   = "n_A = n_A * 0.5",
-            Repetitions   = 0,   
+            Repetitions   = 0,
             Periodicity   = Inf
         ),
         list(
             ID            = "intOverB",
             Trigger       = "T >= 2.2",
             WhatHappens   = "n_B = n_B * 0.5",
-            Repetitions   = 0,   
+            Repetitions   = 0,
             Periodicity   = Inf
         ),
         list(
             ID            = "intOverC",
             Trigger       = "T >= 3.2",
             WhatHappens   = "n_C = n_C * 0.5",
-            Repetitions   = 0,   
+            Repetitions   = 0,
             Periodicity   = Inf
         ),
         list(
             ID            = "intOverD",
             Trigger       = "T >= 4.2",
             WhatHappens   = "n_D = n_D * 0.5",
-            Repetitions   = 0,   
+            Repetitions   = 0,
             Periodicity   = Inf
         )
     )
@@ -478,7 +481,7 @@ test_that("12. Intervening over 4 genotypes both over specific and total populat
                       Fitness = c("1",
                                   "1.01 + (0 * n_A)",
                                   "1.1",
-                                  "1.09", 
+                                  "1.09",
                                   "1.07"))
 
     afd3 <- allFitnessEffects(genotFitness = df3x,
@@ -489,28 +492,28 @@ test_that("12. Intervening over 4 genotypes both over specific and total populat
             ID            = "intOverA",
             Trigger       = "T >= 1.2",
             WhatHappens   = "n_A = n_A * 0.5",
-            Repetitions   = 0,   
+            Repetitions   = 0,
             Periodicity   = Inf
         ),
         list(
             ID            = "intOverB",
             Trigger       = "T >= 2.2",
             WhatHappens   = "n_B = n_B * 0.5",
-            Repetitions   = 0,   
+            Repetitions   = 0,
             Periodicity   = Inf
         ),
         list(
             ID            = "intOverC",
             Trigger       = "T >= 3.2",
             WhatHappens   = "n_C = n_C * 0.5",
-            Repetitions   = 0,   
+            Repetitions   = 0,
             Periodicity   = Inf
         ),
         list(
             ID            = "intOverD",
             Trigger       = "T >= 4.2",
             WhatHappens   = "n_D = n_D * 0.5",
-            Repetitions   = 0,   
+            Repetitions   = 0,
             Periodicity   = Inf
         )
     )
@@ -610,7 +613,7 @@ test_that("13. Intervening in the Rock-Paper-Scissors model for bacterial commun
                                 errorHitWallTime = FALSE,
                                 interventions = final_interventions)
 
-    # by reducing C, R wont spread in the population. This will mean that, with the apropiate 
+    # by reducing C, R wont spread in the population. This will mean that, with the apropiate
     # periodicty in the intervention, C will never surpass WT. We try to check this in these tests.
     i <- 1
     while(i <= nrow(resultscrs1$pops.by.time)){
@@ -630,7 +633,7 @@ test_that("14. Intervening over total population (Exp) | Trigger depends on user
     afd3 <- allFitnessEffects(genotFitness = gffd3,
                             frequencyDependentFitness = TRUE,
                             frequencyType = "abs")
-    
+
     userVars <- list(
         list(Name = "user_var_1",
             Value = 0
@@ -686,9 +689,12 @@ test_that("14. Intervening over total population (Exp) | Trigger depends on user
                             sampleEvery = 0.001,
                             interventions = interventions,
                             userVars = userVars,
-                            rules = rules)
+                           rules = rules,
+                           ## FIXME
+                           ## In Windows sometimes this takes forever
+                           max.wall.time = 600)
 
-    # it may happen that, in some simulations, the population collapses, in that case, 
+    # it may happen that, in some simulations, the population collapses, in that case,
     # pops by time is null, and cannot be checked
 
     # we can check genotype by genotype that when an intervention ocurs, their population lowers
@@ -720,6 +726,8 @@ test_that("14. Intervening over total population (Exp) | Trigger depends on user
             testthat::expect_gte(prev_line[4], line[4])
         }
     }
+
+    # This will break if the simulation aborted
     testthat::expect_gt(sfd3$other$interventionTimes[1], 10.000)
     testthat::expect_lt(sfd3$other$interventionTimes[1], 10.001)
     testthat::expect_gt(sfd3$other$interventionTimes[2], 20.000)
@@ -738,7 +746,7 @@ test_that("15. Intervening over total population (Exp) | WhatHappens uses user v
     afd3 <- allFitnessEffects(genotFitness = gffd3,
                             frequencyDependentFitness = TRUE,
                             frequencyType = "abs")
-    
+
     userVars <- list(
         list(Name = "user_var_1",
             Value = 0
@@ -782,9 +790,11 @@ test_that("15. Intervening over total population (Exp) | WhatHappens uses user v
                             sampleEvery = 0.001,
                             interventions = interventions,
                             userVars = userVars,
-                            rules = rules)
+                           rules = rules,
+                           ## FIXME: again, in Windows this sometimes takes a very long time
+                           max.wall.time = 600)
 
-    # it may happen that, in some simulations, the population collapses, in that case, 
+    # it may happen that, in some simulations, the population collapses, in that case,
     # pops by time is null, and cannot be checked
 
     # we can check genotype by genotype that when an intervention ocurs, their population lowers
@@ -803,7 +813,7 @@ test_that("15. Intervening over total population (Exp) | WhatHappens uses user v
         total <- line[2] + line[3] + line[4]
         prev_total <- prev_line[2] + prev_line[3] + prev_line[4]
         # T = 15
-        if(i == 1){ 
+        if(i == 1){
             testthat::expect_gt(total, prev_total*0.5 - 0.2*prev_total)
             testthat::expect_lt(total, prev_total*0.5 + 0.2*prev_total)
         # T = 25
