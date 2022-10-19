@@ -1,15 +1,15 @@
 \usepackage[%
-		shash={c337f5f},
-		lhash={c337f5f9976dd824b49015eca92e177b9e971414},
-		authname={Ramon, vbox},
-		authemail={rdiaz02@gmail.com},
-		authsdate={2022-10-13},
-		authidate={2022-10-13 11:53:57 -0700},
-		authudate={1665687237},
-		commname={Ramon, vbox},
-		commemail={rdiaz02@gmail.com},
-		commsdate={2022-10-13},
-		commidate={2022-10-13 11:53:57 -0700},
-		commudate={1665687237},
-		refnames={ (HEAD -> master, origin/master, origin/HEAD)}
+		shash={135de68},
+		lhash={135de6859eed42c4ab17becd52450b2203054905},
+		authname={Ramon @ Triturus},
+		authemail={no_specific_email},
+		authsdate={2022-10-19},
+		authidate={2022-10-19 18:23:47 +0200},
+		authudate={1666196627},
+		commname={Ramon @ Triturus},
+		commemail={no_specific_email},
+		commsdate={2022-10-19},
+		commidate={2022-10-19 18:23:47 +0200},
+		commudate={1666196627},
+		refnames={ (HEAD, origin/master, origin/HEAD)}
 	]{gitsetinfo}
