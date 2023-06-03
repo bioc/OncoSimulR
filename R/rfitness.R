@@ -61,15 +61,15 @@ rfitness <- function(g, c= 0.5,
                      sd = 1,
                      mu = 1,
                      reference = "random", ## "random", "max", or the vector,
-                                     ## e.g., rep(1, g). If random, a
-                                     ## random genotype is chosen as
+                     ## e.g., rep(1, g). If random, a
+                     ## random genotype is chosen as
                      ## reference. If "max" this is rep(1, g)
                      scale = NULL, ## a two-element vector: min and max
                      wt_is_1 = c("subtract", "divide", "force", "no"),
                      ## wt_is_1 = TRUE, ## wt has fitness 1
                      log = FALSE, ## log only makes sense if all values >
-                                 ## 0. scale with min > 0, and/or set
-                                 ## wt_is_1 = divide
+                     ## 0. scale with min > 0, and/or set
+                     ## wt_is_1 = divide
                      min_accessible_genotypes = NULL,
                      accessible_th = 0,
                      truncate_at_0 = TRUE,
@@ -88,9 +88,10 @@ rfitness <- function(g, c= 0.5,
                      O = -1, # sd optimum
                      p = 0, # mean production for non 0 allele (optimum)
                      P = -1, # sd for p
-                    
                      model = c("RMF", "Additive", 
-                               "NK", "Ising", "Eggbox", "Full")) {
+                               "NK", "Ising", "Eggbox", "Full"),
+                     seed_magellan = -1
+                     ) {
     ## Like Franke et al., 2011 and others of Krug. Very similar to Greene
     ## and Crona, 2014. And this allows moving from HoC to purely additive
     ## changing c and sd.
@@ -123,51 +124,55 @@ rfitness <- function(g, c= 0.5,
             ## f_det <- rowSums(m) * slope/nrow(m) ## this is Greene and Krona
             fi <- f_r + f_det
         } else if (model == "Additive") {
-      ## get fitness effect for mutations in each gene
-      mutants <-rep(1,g)
+            ## get fitness effect for mutations in each gene
+            mutants <-rep(1,g)
             ## FIXME: Why not just?
             ## f_single_mut <- rnorm(g, mean = mu, sd = sd)
             f_single_mut <- sapply(mutants, FUN = function(x) 
-                                            rnorm(x, mean = mu, sd = sd))
-      ## find which gene is mutated 
-      m2 <- m == 1
-      ## Sum the fitness effect of that mutation to generate a vector fi with
-      ## the fitness for each mutant condition
-      fi <- apply(m2, MARGIN = 1, FUN = function (x) sum(x*f_single_mut))
-      ## remove unnecessary variables
-      rm (f_single_mut, m2)
+                rnorm(x, mean = mu, sd = sd))
+            ## find which gene is mutated 
+            m2 <- m == 1
+            ## Sum the fitness effect of that mutation to generate a vector fi with
+            ## the fitness for each mutant condition
+            fi <- apply(m2, MARGIN = 1, FUN = function (x) sum(x*f_single_mut))
+            ## remove unnecessary variables
+            rm (f_single_mut, m2)
         } else if(model == "NK") {
             if(K >= g) stop("It makes no sense to have K >= g")
             argsnk <- paste0("-K ", K,
                              ifelse(r, " -r ", " "),
+                             "-x ", seed_magellan, " ",
                              g, " 2")
             fl1 <- system2(fl_generate_binary(), args = argsnk, stdout = TRUE)[-1]
         } else if (model == "Ising") {
-      argsIsing <- paste0("-i ", i, " -I ", I ,
-                          ifelse(circular, " -c ", " "),
-                          g, " 2")
-      fl1 <- system2(fl_generate_binary(), args = argsIsing, stdout = TRUE)[-1]
-    } else if (model == "Eggbox") {
-      argsEgg <- paste0("-e ", e, " -E ", E," ", g, " 2")
-      fl1 <- system2(fl_generate_binary(), args = argsEgg, stdout = TRUE)[-1]
-    } else if (model == "Full") {
-      if(K >= g) stop("It makes no sense to have K >= g")
-      argsFull <- paste0("-K ", K, ifelse(r, " -r ", " "),
-                         "-i ", i, " -I ", I , ifelse(circular, " -c ", " "),
-                         "-e ", e, " -E ", E, " ",
-                         "-H ", H, " ",
-                         "-s ", s, " -S ", S, " -d ", d, " ",
-                         "-o ", o, " -O ", O, " -p ", p, " -P ", P, " ",
-                         g, " 2")
-      fl1 <- system2(fl_generate_binary(), args = argsFull, stdout = TRUE)[-1]
-    }
-    if (model == "Eggbox" || model == "Ising" || model == "Full" || model == "NK") {
+            argsIsing <- paste0("-i ", i, " -I ", I ,
+                                ifelse(circular, " -c ", " "),
+                                "-x ", seed_magellan, " ",
+                                g, " 2")
+            fl1 <- system2(fl_generate_binary(), args = argsIsing, stdout = TRUE)[-1]
+        } else if (model == "Eggbox") {
+            argsEgg <- paste0("-e ", e, " -E ", E," ", "-x ", seed_magellan, " ",
+                              g, " 2")
+            fl1 <- system2(fl_generate_binary(), args = argsEgg, stdout = TRUE)[-1]
+        } else if (model == "Full") {
+            if(K >= g) stop("It makes no sense to have K >= g")
+            argsFull <- paste0("-K ", K, ifelse(r, " -r ", " "),
+                               "-i ", i, " -I ", I , ifelse(circular, " -c ", " "),
+                               "-e ", e, " -E ", E, " ",
+                               "-H ", H, " ",
+                               "-s ", s, " -S ", S, " -d ", d, " ",
+                               "-o ", o, " -O ", O, " -p ", p, " -P ", P, " ",
+                               "-x ", seed_magellan, " ",
+                               g, " 2")
+            fl1 <- system2(fl_generate_binary(), args = argsFull, stdout = TRUE)[-1]
+        }
+        if (model == "Eggbox" || model == "Ising" || model == "Full" || model == "NK") {
             fl1 <- matrix(
                 as.numeric(unlist(strsplit(paste(fl1, collapse = " "), " "))),
                 ncol = g + 1, byrow = TRUE)
             m1 <- fl1[, 1:g]
             fi <- fl1[, g + 1]
-
+            
             ## For scaling, etc, all that matters, if anything, is the wildtype
 
             ## We could order by doing this
@@ -187,20 +192,6 @@ rfitness <- function(g, c= 0.5,
             fi <- fi[oo]
             ## make sure no left overs
             rm(gtstring, gtstring2, oo, fl1, m1)
-
-            ## Had we not ordered, do this!!!
-            ## Which one is WT?
-            ## muts <- rowSums(m1)
-            ## w_wt <- which(muts == 0)
-            ## if(w_wt != 1) {
-            ##     f_a <- fi[1]
-            ##     fi[1] <- fi[w_wt]
-            ##     fi[w_wt] <- f_a
-            ##     rm(f_a)
-            ## }
-            ## m[] <- m1
-            ## rm(m1)
-            ## rm(fl1)
         }
         if(!(length(scale) == 3)) {
             if(!is.null(scale)) {
@@ -248,7 +239,7 @@ rfitness <- function(g, c= 0.5,
             }
             if(min(fi) < fiwt) {
                 prod_below <- (scale[3] - scale[2]) / (fiwt - min(fi))
-                fi_below <- which(fi < fiwt)
+                fi_below <- which(fi <= fiwt)
                 new_fi[fi_below] <- ((fi[fi_below] - fiwt) * prod_below) + scale[3]
             }
             new_fi[1] <- scale[3]
@@ -268,11 +259,11 @@ rfitness <- function(g, c= 0.5,
             fi[fi < 0] <- 0
             if(wt_is_1 == "no") {
                 fi <- log(fi)
-                } else {
-                    ## by decree, fitness of wt is 1. So shift everything
-                    fi <- log(fi) + 1
-                }
-                ## former expression, but it was more confusing
+            } else {
+                ## by decree, fitness of wt is 1. So shift everything
+                fi <- log(fi) + 1
+            }
+            ## former expression, but it was more confusing
             ## fi <- log(fi/fi[1]) + 1
         }
         
