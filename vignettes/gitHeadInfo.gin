@@ -1,15 +1,15 @@
 \usepackage[%
-		shash={a7b11c0},
-		lhash={a7b11c05a813999ae3eb29a3217f28d6a178423b},
-		authname={ramon diaz-uriarte (at Phelsuma)},
-		authemail={rdiaz02@gmail.com},
-		authsdate={2023-06-02},
-		authidate={2023-06-02 23:32:48 +0200},
-		authudate={1685741568},
-		commname={ramon diaz-uriarte (at Phelsuma)},
-		commemail={rdiaz02@gmail.com},
-		commsdate={2023-06-02},
-		commidate={2023-06-02 23:32:48 +0200},
-		commudate={1685741568},
-		refnames={ (HEAD -> nk_runif_error, origin/nk_runif_error)}
+		shash={e8e1c73},
+		lhash={e8e1c73561c33baf9e8d4e26d083828fdd9756aa},
+		authname={Ramon @ Triturus},
+		authemail={no_specific_email},
+		authsdate={2023-07-14},
+		authidate={2023-07-14 16:17:09 +0200},
+		authudate={1689344229},
+		commname={Ramon @ Triturus},
+		commemail={no_specific_email},
+		commsdate={2023-07-14},
+		commidate={2023-07-14 16:17:09 +0200},
+		commudate={1689344229},
+		refnames={ (HEAD -> master, origin/master, origin/HEAD)}
 	]{gitsetinfo}
