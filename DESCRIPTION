@@ -100,7 +100,7 @@ Authors@R: c(
 	             comment = "vignette examples"),
 	      person("Silvia", "Talavera Marcos", role = "ctb",
 	             comment = "vignette examples")
-	      )
+	     )
 Author: Ramon Diaz-Uriarte [aut, cre],
 	Sergio Sanchez-Carrillo [aut],
 	Juan Antonio Miguel Gonzalez [aut],
