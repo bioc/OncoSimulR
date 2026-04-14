@@ -426,7 +426,7 @@ to_genotFitness_std <- function(x,
             }
             
         } else {
-            if(!isTRUE(all.equal(x[whichroot, ncol(x)], 1))) {
+          if(!isTRUE(all.equal(x[whichroot, ncol(x)], 1, check.attributes = FALSE))) {
                 if(deathSpec) {
                     warning("Death of wildtype != 1.",
                             " Dividing all deaths by death of wildtype.")
@@ -440,7 +440,8 @@ to_genotFitness_std <- function(x,
                 x[, ncol(x)] <- x[, ncol(x)]/vwt
             }
             
-            if (deathSpec && !isTRUE(all.equal(x[whichroot, ncol(x)-1], 1))) {
+          if (deathSpec && !isTRUE(all.equal(x[whichroot, ncol(x) - 1], 1,
+                                             check.attributes = FALSE))) {
                 warning("Birth of wildtype != 1.",
                         " Dividing all births by birth of wildtype.")
                 
@@ -597,7 +598,7 @@ genot_fitness_to_epistasis <- function(x) {
     if(length(wt) == 1)
         fwt <- f[wt]
     ## No longer being used when we pass fitness landscapse: flfast
-    if(!isTRUE(all.equal(fwt, 1))) {
+  if(!isTRUE(all.equal(fwt, 1, check.attributes = FALSE))) {
         message("Fitness of wildtype != 1. ",
                 "Dividing all fitnesses by fitness of wildtype.")
         f <- f/fwt
